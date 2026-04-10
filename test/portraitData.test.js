@@ -6,6 +6,11 @@ const NEW_PRESETS = [
   "Volleyball Gym Sideline",
   "Volleyball Bleachers",
   "Volleyball Outdoor Sunset",
+  "Beach Volleyball Sunrise Court",
+  "Beach Volleyball Golden Hour Tournament",
+  "Beach Volleyball Tropical Practice",
+  "Beach Volleyball Luxury Resort",
+  "Beach Volleyball Stormy Coast Match",
   "Office Modern Window",
   "Office Desk Workspace",
   "Office Conference Room",
@@ -36,4 +41,15 @@ test("new portrait scene settings are selectable in the portrait data pool", () 
       `${presetName} setting should be selectable`,
     );
   });
+});
+
+test("new beach volleyball preset outfits are selectable in the portrait data pool", () => {
+  NEW_PRESETS
+    .filter((presetName) => presetName.startsWith("Beach Volleyball"))
+    .forEach((presetName) => {
+      assert.ok(
+        DATA.outfit.includes(MOODS[presetName].outfit),
+        `${presetName} outfit should be selectable`,
+      );
+    });
 });
