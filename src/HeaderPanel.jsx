@@ -1,6 +1,7 @@
+import { memo } from "react";
 import { LANES, RATIO_INFO } from "./data";
 
-export function HeaderPanel({ accentColor, result, rolling }) {
+export const HeaderPanel = memo(function HeaderPanel({ accentColor, result, rolling }) {
   return (
     <div style={{ marginBottom: 22 }}>
       <div style={{ fontSize: 9, letterSpacing: 5, color: "#5858a0", marginBottom: 4 }}>
@@ -27,4 +28,4 @@ export function HeaderPanel({ accentColor, result, rolling }) {
       </div>
     </div>
   );
-}
+});

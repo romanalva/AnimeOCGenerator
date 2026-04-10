@@ -1,6 +1,7 @@
+import { memo } from "react";
 import { RatioPreview, SlotRow } from "./components";
 
-export function SlotCard({
+export const SlotCard = memo(function SlotCard({
   accentColor,
   laneTag,
   slots,
@@ -60,4 +61,4 @@ export function SlotCard({
       )}
     </div>
   );
-}
+});

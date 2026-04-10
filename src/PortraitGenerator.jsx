@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { writeToClipboard } from "./browserUtils";
 import { RatioPreview, SlotRow } from "./components";
 import {
   buildPromptString,
@@ -12,31 +13,6 @@ import {
 const ACCENT = "#f472b6";
 const DIM = "#2a0a1a";
 const ORDERED_FIELDS = FIELD_GROUPS.flatMap((group) => group.fields);
-
-function copyFallback(text, onDone) {
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.style.cssText =
-    "position:fixed;top:0;left:0;opacity:0;pointer-events:none;";
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  try {
-    document.execCommand("copy");
-  } catch (error) {
-    console.warn("Copy failed", error);
-  }
-  document.body.removeChild(textarea);
-  onDone();
-}
-
-function writeToClipboard(text, onDone) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(onDone).catch(() => copyFallback(text, onDone));
-    return;
-  }
-  copyFallback(text, onDone);
-}
 
 function buildCombinedPrompt(prompt) {
   return `${buildPromptString(prompt)}\n\nNegative prompt: ${prompt.negative_tags.join(", ")}`;
@@ -54,6 +30,7 @@ export function PortraitGenerator({ onSwitchMode }) {
   const [cardKey, setCardKey] = useState(0);
   const firstRun = useRef(true);
 
+  const presetNames = useMemo(() => Object.keys(MOODS), []);
   const combinedPrompt = useMemo(
     () => (prompt ? buildCombinedPrompt(prompt) : ""),
     [prompt],
@@ -92,105 +69,30 @@ export function PortraitGenerator({ onSwitchMode }) {
     }
   }, []);
 
-  const slotDefinitions = prompt
-    ? ORDERED_FIELDS.filter((field) => field in prompt).map((field) => [
-        FIELD_LABELS[field] ?? field,
-        field,
-        prompt[field],
-        DATA[field] ?? [],
-        "",
-      ])
-    : [];
+  const slotDefinitions = useMemo(
+    () =>
+      prompt
+        ? ORDERED_FIELDS.filter((field) => field in prompt).map((field) => [
+            FIELD_LABELS[field] ?? field,
+            field,
+            prompt[field],
+            DATA[field] ?? [],
+            "",
+          ])
+        : [],
+    [prompt],
+  );
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#08080f",
-        color: "#c8c8e0",
-        fontFamily: "'IBM Plex Mono', monospace",
-        overflowX: "hidden",
-      }}
-    >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Bebas+Neue&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: #1e1e30; border-radius: 2px; }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes flicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .fade-up { animation: fadeUp 0.28s ease forwards; }
-        .roll-btn { font-family: 'Bebas Neue', sans-serif; letter-spacing: 4px; cursor: pointer; transition: all 0.18s; border-radius: 3px; }
-        .roll-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.08); }
-        .pill { font-family: 'IBM Plex Mono', monospace; cursor: pointer; transition: all 0.2s; letter-spacing: 2px; text-transform: uppercase; font-size: 9px; border-radius: 2px; border: 1px solid; padding: 5px 10px; }
-        .tab-btn { font-family: 'IBM Plex Mono', monospace; cursor: pointer; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; background: transparent; border: none; padding: 9px 11px; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
-        @media (max-width: 900px) {
-          .responsive-output-toolbar {
-            flex-direction: column;
-            align-items: stretch !important;
-            gap: 8px;
-            padding-top: 8px !important;
-            padding-bottom: 8px !important;
-          }
-          .responsive-tab-row { overflow-x: auto; }
-          .responsive-output-actions {
-            margin-left: 0 !important;
-            flex-wrap: wrap;
-          }
-        }
-        @media (max-width: 720px) {
-          .responsive-slot-row {
-            flex-direction: column;
-            gap: 6px;
-          }
-          .responsive-slot-label {
-            width: auto !important;
-            padding-top: 0 !important;
-          }
-          .responsive-slot-content {
-            width: 100%;
-          }
-          .responsive-action-bar { gap: 8px !important; }
-          .responsive-action-bar .roll-btn {
-            width: 100%;
-            min-width: 0 !important;
-          }
-          .responsive-pill-row .pill,
-          .responsive-preset-row .pill {
-            flex: 1 1 calc(50% - 7px);
-            min-height: 40px;
-          }
-          .responsive-output-actions > * {
-            flex: 1 1 calc(50% - 5px);
-            min-height: 40px;
-          }
-          .responsive-history-row,
-          .responsive-history-header {
-            flex-direction: column;
-            align-items: stretch !important;
-          }
-          .responsive-history-summary {
-            white-space: normal !important;
-            overflow: visible !important;
-            text-overflow: clip !important;
-          }
-          .responsive-history-lane {
-            width: auto !important;
-          }
-        }
-      `}</style>
-
+    <div className="app-shell app-shell--portrait">
       <div
+        className="app-bg-layer"
         style={{
-          position: "fixed",
-          inset: 0,
-          pointerEvents: "none",
-          zIndex: 0,
           background: `radial-gradient(ellipse 55% 45% at 15% 5%, ${DIM}cc 0%, transparent 65%), radial-gradient(ellipse 35% 30% at 85% 95%, rgba(10,5,30,0.45) 0%, transparent 65%)`,
         }}
       />
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 820, margin: "0 auto", padding: "26px 16px 80px" }}>
+      <div className="app-container">
         <div className="responsive-pill-row" style={{ display: "flex", gap: 7, marginBottom: 12, flexWrap: "wrap" }}>
           <button
             className="pill"
@@ -231,7 +133,7 @@ export function PortraitGenerator({ onSwitchMode }) {
         </div>
 
         <div className="responsive-preset-row" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
-          {Object.keys(MOODS).map((moodName) => {
+          {presetNames.map((moodName) => {
             const active = activeMood === moodName;
             return (
               <button

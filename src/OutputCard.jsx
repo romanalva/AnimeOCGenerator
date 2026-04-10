@@ -1,6 +1,7 @@
+import { memo } from "react";
 import { LANES } from "./data";
 
-export function OutputCard({
+export const OutputCard = memo(function OutputCard({
   tab,
   setTab,
   tabs,
@@ -293,4 +294,4 @@ export function OutputCard({
       </div>
     </div>
   );
-}
+});

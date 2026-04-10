@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { RATIO_INFO } from "./data";
 
 function hexToRgb(hex) {
@@ -28,7 +29,7 @@ function themedBorder(hex, alpha = 0.42) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export function RatioPreview({ ratio, color }) {
+export const RatioPreview = memo(function RatioPreview({ ratio, color }) {
   if (!ratio || !RATIO_INFO[ratio]) {
     return null;
   }
@@ -69,9 +70,9 @@ export function RatioPreview({ ratio, color }) {
       </div>
     </div>
   );
-}
+});
 
-export function SlotRow({
+export const SlotRow = memo(function SlotRow({
   label,
   value,
   options,
@@ -211,4 +212,4 @@ export function SlotRow({
       </div>
     </div>
   );
-}
+});

@@ -1,6 +1,7 @@
+import { memo } from "react";
 import { RatioPreview } from "./components";
 
-export function ControlsPanel({
+export const ControlsPanel = memo(function ControlsPanel({
   activeLane,
   setActiveLane,
   laneNames,
@@ -163,4 +164,4 @@ export function ControlsPanel({
       )}
     </>
   );
-}
+});

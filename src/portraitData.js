@@ -2,7 +2,16 @@ const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const randMulti = (arr, min, max) => {
   const count = min + Math.floor(Math.random() * (max - min + 1));
-  return [...arr].sort(() => Math.random() - 0.5).slice(0, count);
+  const sampleSize = Math.max(0, Math.min(count, arr.length));
+  const copy = [...arr];
+
+  for (let index = 0; index < sampleSize; index += 1) {
+    const swapIndex =
+      index + Math.floor(Math.random() * (copy.length - index));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+
+  return copy.slice(0, sampleSize);
 };
 
 export const DATA = {

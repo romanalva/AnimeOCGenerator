@@ -9,8 +9,21 @@ export function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function sampleWithoutReplacement(arr, count) {
+  const sampleSize = Math.max(0, Math.min(count, arr.length));
+  const copy = [...arr];
+
+  for (let index = 0; index < sampleSize; index += 1) {
+    const swapIndex =
+      index + Math.floor(Math.random() * (copy.length - index));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+
+  return copy.slice(0, sampleSize);
+}
+
 export function pickN(arr, count) {
-  return [...arr].sort(() => Math.random() - 0.5).slice(0, count);
+  return sampleWithoutReplacement(arr, count);
 }
 
 export function buildEtsy(lane, slots, novaSol) {

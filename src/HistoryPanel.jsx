@@ -1,4 +1,6 @@
-export function HistoryPanel({
+import { memo } from "react";
+
+export const HistoryPanel = memo(function HistoryPanel({
   history,
   favorites,
   lanes,
@@ -95,4 +97,4 @@ export function HistoryPanel({
       ))}
     </div>
   );
-}
+});

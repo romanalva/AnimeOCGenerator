@@ -2,6 +2,12 @@
   color-scheme: dark;
 }
 
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 html,
 body,
 #root {
@@ -11,6 +17,9 @@ body,
 body {
   margin: 0;
   background: #08080f;
+  color: #c8c8e0;
+  font-family: "IBM Plex Mono", monospace;
+  overflow-x: hidden;
 }
 
 button,
@@ -22,4 +31,294 @@ textarea {
 
 a {
   color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e1e30;
+  border-radius: 2px;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.app-shell {
+  min-height: 100vh;
+  background: #08080f;
+  color: #c8c8e0;
+  overflow-x: hidden;
+}
+
+.app-shell--portrait {
+  min-height: 100vh;
+}
+
+.app-bg-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app-container {
+  position: relative;
+  z-index: 1;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 26px 16px 80px;
+}
+
+.fade-up {
+  animation: fadeUp 0.28s ease forwards;
+}
+
+.roll-btn {
+  font-family: "Bebas Neue", sans-serif;
+  letter-spacing: 4px;
+  cursor: pointer;
+  transition: all 0.18s;
+  border-radius: 3px;
+}
+
+.roll-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.pill {
+  font-family: "IBM Plex Mono", monospace;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-size: 9px;
+  border-radius: 2px;
+  border: 1px solid;
+  padding: 5px 10px;
+}
+
+.tab-btn {
+  font-family: "IBM Plex Mono", monospace;
+  cursor: pointer;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  background: transparent;
+  border: none;
+  padding: 9px 11px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  transition: opacity 0.2s;
+}
+
+.icon-btn:hover {
+  opacity: 0.7;
+}
+
+.toggle-track {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: none;
+  transition: background 0.3s;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.toggle-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  position: absolute;
+  top: 3px;
+  transition: left 0.25s;
+}
+
+.neg-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 2px;
+  font-size: 10px;
+  border: 1px solid rgba(255, 77, 109, 0.25);
+  background: rgba(255, 77, 109, 0.06);
+  color: #cc7080;
+  letter-spacing: 1px;
+}
+
+.neg-tag button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #ff4d6d;
+  font-size: 11px;
+  padding: 0;
+  line-height: 1;
+}
+
+.text-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  color: #c8c8e0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  padding: 6px 10px;
+  outline: none;
+}
+
+.text-input:focus {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.app-loading-fallback {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #8888aa;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+@media (max-width: 900px) {
+  .responsive-output-toolbar {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 8px;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  .responsive-tab-row {
+    overflow-x: auto;
+  }
+
+  .responsive-output-actions {
+    margin-left: 0 !important;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-container {
+    padding: 20px 12px 72px;
+  }
+
+  .responsive-slot-row {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .responsive-slot-label {
+    width: auto !important;
+    padding-top: 0 !important;
+  }
+
+  .responsive-slot-content {
+    width: 100%;
+  }
+
+  .responsive-action-bar {
+    gap: 8px !important;
+  }
+
+  .responsive-action-bar .roll-btn {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .responsive-pill-row .pill,
+  .responsive-preset-row .pill {
+    flex: 1 1 calc(50% - 7px);
+    min-height: 40px;
+  }
+
+  .responsive-controls-row {
+    align-items: stretch !important;
+  }
+
+  .responsive-controls-row > * {
+    width: 100%;
+  }
+
+  .responsive-ratio-row {
+    justify-content: space-between;
+  }
+
+  .responsive-ratio-row select {
+    flex: 1;
+    min-height: 40px;
+  }
+
+  .responsive-toggle-row {
+    margin-left: 0 !important;
+    justify-content: space-between;
+  }
+
+  .responsive-theme-row,
+  .responsive-neg-input-row,
+  .responsive-log-row,
+  .responsive-neg-header,
+  .responsive-history-header,
+  .responsive-history-row {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .responsive-neg-input-row > *,
+  .responsive-log-row > * {
+    width: 100%;
+  }
+
+  .responsive-output-actions > * {
+    flex: 1 1 calc(50% - 5px);
+    min-height: 40px;
+  }
+
+  .responsive-history-lane {
+    width: auto !important;
+  }
+
+  .responsive-history-summary {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
 }
