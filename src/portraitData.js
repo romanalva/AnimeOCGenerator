@@ -677,6 +677,17 @@ function uniqueList(items, limit = items.length) {
   return [...new Set(items.filter(Boolean))].slice(0, limit);
 }
 
+const DEFAULT_NEGATIVE_PROMPT =
+  "low quality, blurry, bad anatomy, malformed hands, extra fingers, extra limbs, asymmetrical eyes, facial distortion, muddy colors, text, watermark, logo";
+
+const SYNONYM_GROUPS = [
+  ["anime poster art", "modern anime poster art", "premium anime poster art", "key visual"],
+  ["premium", "polished", "commercial"],
+  ["high detail", "hyperdetailed", "illustration-grade detailing", "8k quality"],
+  ["neon glow", "neon-tinged", "neon signs", "glowing screens"],
+  ["mysterious", "sultry", "alluring"],
+];
+
 function pickFrom(pool, fallback = []) {
   const source = pool?.length ? pool : fallback;
   return rand(source);
@@ -725,6 +736,167 @@ function joinNatural(parts, joiner = ", ") {
   return parts.filter(Boolean).join(joiner);
 }
 
+function normalizeToken(value = "") {
+  return value.toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function toList(value) {
+  return Array.isArray(value) ? value : value ? [value] : [];
+}
+
+function canonicalizeSynonyms(items) {
+  const used = new Set();
+  return items.filter((item) => {
+    const normalized = normalizeToken(item);
+    const synonymGroup = SYNONYM_GROUPS.find((group) =>
+      group.some((entry) => normalized.includes(normalizeToken(entry))),
+    );
+    const key = synonymGroup ? synonymGroup[0] : normalized;
+    if (!key || used.has(key)) {
+      return false;
+    }
+    used.add(key);
+    return true;
+  });
+}
+
+export function dedupeDescriptors(list = []) {
+  const deduped = [];
+  const seen = new Set();
+  toList(list).forEach((item) => {
+    if (!item) {
+      return;
+    }
+    const normalized = normalizeToken(item);
+    if (!normalized || seen.has(normalized)) {
+      return;
+    }
+    seen.add(normalized);
+    deduped.push(item.trim());
+  });
+
+  return canonicalizeSynonyms(deduped);
+}
+
+function truncateByWordLimit(text = "", wordLimit = 25) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= wordLimit) {
+    return text.trim();
+  }
+  return words.slice(0, wordLimit).join(" ");
+}
+
+function firstDistinct(options = [], fallback = "") {
+  const deduped = dedupeDescriptors(options);
+  return deduped[0] ?? fallback;
+}
+
+function resolveCameraTerms(prompt) {
+  const framing = firstDistinct([prompt.shot_type, prompt.composition]);
+  const lens = firstDistinct([prompt.camera_lens]);
+  return { framing, lens };
+}
+
+function resolvePrimaryMood(moodValue = "") {
+  const [dominant, secondary] = moodValue
+    .split(/\s+and\s+/i)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  return secondary ? `${dominant} and ${secondary}` : dominant || moodValue;
+}
+
+function resolveRenderStack(prompt) {
+  return {
+    mainStyle: firstDistinct([prompt.anime_render_style, ...(prompt.style_tags ?? [])]),
+    linework: firstDistinct([prompt.linework_style]),
+    shading: firstDistinct([prompt.shading_style]),
+    finish: dedupeDescriptors([...(prompt.style_tags ?? []), prompt.anime_eye_render]).slice(0, 2),
+  };
+}
+
+export function buildCharacterLock(prompt) {
+  const subject = "woman";
+  const identityTraits = dedupeDescriptors([
+    prompt.body_type,
+    prompt.skin_tone,
+    prompt.face_shape?.replace("elegant ", ""),
+    `${prompt.eye_color} eyes`,
+    prompt.hair_length?.replace("long with ", "long "),
+    prompt.hair_color ? `${prompt.hair_color} hair` : "",
+    prompt.hair_style,
+    prompt.expression,
+  ]);
+
+  return truncateByWordLimit(
+    `clearly adult ${subject}, ${identityTraits.join(", ")}`.replace(/\s+,/g, ","),
+    25,
+  );
+}
+
+function buildOutfitSection(prompt) {
+  return truncateByWordLimit(
+    dedupeDescriptors([prompt.outfit, prompt.accessories])
+      .filter((item) => item !== "no accessories")
+      .join(", "),
+    18,
+  );
+}
+
+export function buildSceneBlock(prompt) {
+  const { framing, lens } = resolveCameraTerms(prompt);
+  const poseAndFraming = truncateByWordLimit(
+    dedupeDescriptors([prompt.pose, framing, lens]).join(", "),
+    20,
+  );
+
+  const environmentLight = truncateByWordLimit(
+    dedupeDescriptors([
+      prompt.setting,
+      prompt.time_of_day,
+      prompt.lighting,
+      prompt.color_palette,
+      resolvePrimaryMood(prompt.mood),
+      prompt.weather_atmosphere,
+    ]).join(", "),
+    25,
+  );
+
+  return { poseAndFraming, environmentLight };
+}
+
+export function buildRenderBlock(prompt) {
+  const render = resolveRenderStack(prompt);
+  return truncateByWordLimit(
+    dedupeDescriptors([
+      render.mainStyle,
+      render.linework,
+      render.shading,
+      ...render.finish,
+    ]).join(", "),
+    18,
+  );
+}
+
+export function buildNegativePrompt() {
+  return DEFAULT_NEGATIVE_PROMPT;
+}
+
+export function compressPromptSections(sections) {
+  return {
+    characterLock: truncateByWordLimit(sections.characterLock, 25),
+    outfit: truncateByWordLimit(sections.outfit, 18),
+    poseAndFraming: truncateByWordLimit(sections.poseAndFraming, 20),
+    environmentLight: truncateByWordLimit(sections.environmentLight, 25),
+    renderBlock: truncateByWordLimit(sections.renderBlock, 18),
+    negativePrompt: buildNegativePrompt(),
+  };
+}
+
+export function assembleFinalPrompt(sections) {
+  return `Create a high-quality anime illustration of a ${sections.characterLock}. She wears ${sections.outfit}. She is ${sections.poseAndFraming}. Set in ${sections.environmentLight}. Style: ${sections.renderBlock}.\n\nNegative prompt: ${sections.negativePrompt}`;
+}
+
 function buildScenarioAwareTags(overrides, scenario, stylePackage) {
   if (overrides.style_tags) {
     return overrides.style_tags;
@@ -765,19 +937,32 @@ export function getOrientationForAspectRatio(aspectRatio) {
 }
 
 function buildPortraitNegativePrompt(prompt) {
-  return uniqueList(prompt.negative_tags, 14).join(", ");
+  return buildNegativePrompt(prompt);
 }
 
 function buildPortraitRegularPrompt(prompt) {
-  return `Create a premium anime portrait in ${prompt.aspect_ratio} with a ${prompt.shot_type} and ${prompt.composition}, framed through a ${prompt.camera_lens}. The subject should feel ${prompt.age_aesthetic} with a ${prompt.body_type} presence, wearing ${prompt.outfit} with ${prompt.accessories}, posed ${prompt.pose}. Give her ${prompt.expression}, ${prompt.makeup}, ${prompt.face_shape}, ${prompt.nose}, ${prompt.lips}, ${prompt.eye_color} eyes with ${prompt.eye_style}, ${prompt.hair_color} hair that is ${prompt.hair_length} and ${prompt.hair_style}, plus ${prompt.skin_tone} skin with ${prompt.blush}. Place her in ${prompt.setting}, lit by ${prompt.lighting} during ${prompt.time_of_day} with ${prompt.weather_atmosphere}, carrying a ${prompt.mood} mood and a ${prompt.color_palette} color script. Render it as ${prompt.anime_render_style} with ${prompt.linework_style}, ${prompt.shading_style}, and ${prompt.anime_eye_render}. Finish with ${prompt.style_tags.join(", ")}.`;
+  const characterLock = buildCharacterLock(prompt);
+  const outfit = buildOutfitSection(prompt);
+  const scene = buildSceneBlock(prompt);
+  const renderBlock = buildRenderBlock(prompt);
+  const compressedSections = compressPromptSections({
+    characterLock,
+    outfit,
+    poseAndFraming: scene.poseAndFraming,
+    environmentLight: scene.environmentLight,
+    renderBlock,
+  });
+
+  return assembleFinalPrompt(compressedSections);
 }
 
 function buildPortraitChatGptPrompt(prompt) {
-  return `Create a polished anime portrait illustration. Use a ${prompt.aspect_ratio} canvas with ${prompt.orientation} orientation, a ${prompt.shot_type}, ${prompt.composition}, and a ${prompt.camera_lens}. Design the subject as ${prompt.age_aesthetic} with a ${prompt.body_type} build. Face and expression: ${joinNatural([prompt.expression, prompt.makeup, prompt.face_shape, prompt.nose, prompt.lips])}. Hair, eyes, and complexion: ${joinNatural([`${prompt.hair_color} hair`, prompt.hair_length, prompt.hair_style, `${prompt.eye_color} eyes`, prompt.eye_style, `${prompt.skin_tone} skin`, prompt.blush])}. Wardrobe and styling: ${prompt.outfit}, ${prompt.accessories}. Pose: ${prompt.pose}. Environment: ${prompt.setting}. Light the scene with ${prompt.lighting} at ${prompt.time_of_day}, with ${prompt.weather_atmosphere}, a ${prompt.mood} mood, and a ${prompt.color_palette} palette. Render in ${joinNatural([prompt.anime_render_style, prompt.linework_style, prompt.shading_style, prompt.anime_eye_render])}. Keep the final image coherent, commercial, and premium, with ${prompt.style_tags.join(", ")}. Exclude text, watermarking, malformed anatomy, and broken hands.`;
+  return buildPortraitRegularPrompt(prompt);
 }
 
 function buildPortraitNanoPrompt(prompt) {
-  return `Format: ${prompt.aspect_ratio}; ${prompt.orientation} orientation; ${prompt.shot_type}; ${prompt.composition}; lens ${prompt.camera_lens}. Subject: ${prompt.age_aesthetic}, ${prompt.body_type}, ${prompt.expression}. Face: ${prompt.face_shape}; ${prompt.nose}; ${prompt.lips}; ${prompt.eye_color} eyes; ${prompt.eye_style}. Hair and skin: ${prompt.hair_color}; ${prompt.hair_length}; ${prompt.hair_style}; ${prompt.skin_tone}; ${prompt.blush}. Wardrobe: ${prompt.outfit}. Accessories: ${prompt.accessories}. Pose: ${prompt.pose}. Scene: ${prompt.setting}. Light and atmosphere: ${prompt.lighting}; ${prompt.time_of_day}; ${prompt.weather_atmosphere}; ${prompt.mood}; ${prompt.color_palette}. Render: ${prompt.anime_render_style}; ${prompt.linework_style}; ${prompt.shading_style}; ${prompt.anime_eye_render}. Tags: ${prompt.style_tags.join(", ")}.`;
+  const scene = buildSceneBlock(prompt);
+  return `Character Lock: ${buildCharacterLock(prompt)}\nScene: ${scene.poseAndFraming}; ${scene.environmentLight}\nRender: ${buildRenderBlock(prompt)}`;
 }
 
 function buildPortraitSummary(prompt) {
@@ -800,6 +985,10 @@ function buildPortraitSummary(prompt) {
 
 function decoratePortraitPrompt(prompt) {
   const platformConfig = resolvePortraitPlatformConfig(prompt.aspect_ratio);
+  const characterLock = buildCharacterLock(prompt);
+  const outfitSection = buildOutfitSection(prompt);
+  const sceneBlock = buildSceneBlock(prompt);
+  const renderBlock = buildRenderBlock(prompt);
   const regularPrompt = buildPortraitRegularPrompt(prompt);
   const chatgptPrompt = buildPortraitChatGptPrompt(prompt);
   const nanoPrompt = buildPortraitNanoPrompt(prompt);
@@ -813,6 +1002,10 @@ function decoratePortraitPrompt(prompt) {
     regularPrompt,
     chatgptPrompt,
     nanoPrompt,
+    fullPrompt: regularPrompt,
+    characterLockPrompt: characterLock,
+    scenePrompt: `${sceneBlock.poseAndFraming}. ${sceneBlock.environmentLight}`,
+    renderBlockPrompt: renderBlock,
     negativePrompt,
     combinedPrompt: `${regularPrompt}\n\nNegative prompt: ${negativePrompt}`,
     chatGPT: {
