@@ -1,5 +1,6 @@
 import {
   CHATGPT_SIZE,
+  LANE_SUPPORT_POOLS,
   LANES,
   NOVA_SOL_ANCHOR,
   RATIO_INFO,
@@ -24,6 +25,10 @@ function sampleWithoutReplacement(arr, count) {
 
 export function pickN(arr, count) {
   return sampleWithoutReplacement(arr, count);
+}
+
+function getLaneSupportPool(laneName, key, fallback) {
+  return LANE_SUPPORT_POOLS[laneName]?.[key] || fallback;
 }
 
 export function buildEtsy(lane, slots, novaSol) {
@@ -130,12 +135,14 @@ function assembleResult(laneName, slots, customNeg = []) {
     novaSol = false,
     collTheme = "",
   } = slots;
-  const charBlock = novaSol
-    ? `\n\nCharacter: ${NOVA_SOL_ANCHOR}`
-    : " No characters, environment only.";
-  const themeBlock = collTheme ? ` Collection theme: ${collTheme}.` : "";
+  const characterDirection = novaSol
+    ? `Feature Nova Sol naturally within the environment: ${NOVA_SOL_ANCHOR}`
+    : "Environment-led scene only, with no foreground character.";
+  const themeDirection = collTheme
+    ? `Create this as part of the collection theme "${collTheme}". `
+    : "";
 
-  const positive = `Draw a 2D anime cinematic background.${charBlock} Subject: ${env}. Viewpoint: ${viewpoint}. Time of day: ${timeOfDay}. Season: ${season}. Mood: ${mood}. Lighting: ${light}. Weather / atmosphere: ${weather}. Foreground: ${foreground}. Texture / surface: ${texture}. Depth of field: ${dof}. Sound reference / vibe: ${soundRef}. Details: ${details.join(", ")}. Color palette: ${palette}. Composition: ${composition}. Style: ${style}. High atmospheric depth, volumetric light, premium environment art, decor-ready composition, no text, no watermarks, no drop shadows, no ground plane.${themeBlock} Aspect ratio: ${ratio}.`;
+  const positive = `${themeDirection}Create a premium decor-ready 2D anime environment illustration. ${characterDirection} Core scene: ${env}. Compose the frame for a ${ratio} canvas, using a ${viewpoint} and ${composition}. Seasonal moment: ${timeOfDay} in ${season}. Lighting and atmosphere: ${light}; ${weather}. Foreground anchor: ${foreground}. Story details: ${details.join(", ")}. Surface language: ${texture}. Focus treatment: ${dof}. Color script: ${palette}. Ambient cue: ${soundRef}. Render approach: ${style}. Prioritize atmospheric depth, volumetric light, cohesive worldbuilding, and a polished gallery-ready finish. No text, no watermarks, no drop shadows, no ground plane.`;
 
   const negTerms =
     customNeg.length > 0 ? customNeg : laneConfig.neg.split(", ");
@@ -206,6 +213,12 @@ export function buildResult(laneName, slotsData, customNeg = []) {
     foregrounds,
   } = slotsData;
   const laneConfig = LANES[laneName];
+  const viewpointsPool = getLaneSupportPool(laneName, "viewpoints", viewpoints);
+  const palettesPool = getLaneSupportPool(laneName, "palettes", palettes);
+  const compositionsPool = getLaneSupportPool(laneName, "compositions", compositions);
+  const texturesPool = getLaneSupportPool(laneName, "textures", textures);
+  const depthsPool = getLaneSupportPool(laneName, "depths", depths);
+  const soundRefsPool = getLaneSupportPool(laneName, "soundRefs", soundRefs);
 
   return assembleResult(
     laneName,
@@ -217,17 +230,17 @@ export function buildResult(laneName, slotsData, customNeg = []) {
       details: locks.details ? overrides.details : pickN(laneConfig.details, 2),
       style: locks.style ? overrides.style : pick(laneConfig.style),
       ratio: locks.ratio ? overrides.ratio : pick(laneConfig.ratios),
-      viewpoint: locks.viewpoint ? overrides.viewpoint : pick(viewpoints),
+      viewpoint: locks.viewpoint ? overrides.viewpoint : pick(viewpointsPool),
       timeOfDay: locks.timeOfDay ? overrides.timeOfDay : pick(timesOfDay),
       season: locks.season ? overrides.season : pick(seasons),
       foreground: locks.foreground
         ? overrides.foreground
         : pick(foregrounds[laneName] || foregrounds["Neon Deck"]),
-      palette: locks.palette ? overrides.palette : pick(palettes),
-      composition: locks.composition ? overrides.composition : pick(compositions),
-      texture: locks.texture ? overrides.texture : pick(textures),
-      dof: locks.dof ? overrides.dof : pick(depths),
-      soundRef: locks.soundRef ? overrides.soundRef : pick(soundRefs),
+      palette: locks.palette ? overrides.palette : pick(palettesPool),
+      composition: locks.composition ? overrides.composition : pick(compositionsPool),
+      texture: locks.texture ? overrides.texture : pick(texturesPool),
+      dof: locks.dof ? overrides.dof : pick(depthsPool),
+      soundRef: locks.soundRef ? overrides.soundRef : pick(soundRefsPool),
       novaSol: overrides.novaSol || false,
       collTheme: overrides.collTheme || "",
     },

@@ -666,10 +666,196 @@ export const RATIO_INFO = {
 
 export const CHATGPT_SIZE = {
   "16:9": "1792x1024",
-  "4:5": "1024x1024",
-  "2:3": "1024x1024",
+  "4:5": "1024x1792",
+  "2:3": "1024x1792",
   "1:1": "1024x1024",
   "9:16": "1024x1792",
+};
+
+export const LANE_SUPPORT_POOLS = {
+  "Setup Vibe": {
+    viewpoints: [
+      "over-the-shoulder",
+      "eye-level street view",
+      "medium distance with depth",
+      "isometric perspective",
+    ],
+    palettes: [
+      "cool teal and slate gray",
+      "warm amber and deep brown",
+      "muted sage and cream",
+    ],
+    compositions: [
+      "frame within a frame",
+      "layered depth planes",
+      "centered symmetry",
+      "rule of thirds",
+    ],
+    textures: [
+      "brushed metal",
+      "aged wood",
+      "frosted glass",
+      "matte concrete",
+      "worn denim",
+    ],
+    depths: [
+      "shallow focus with foreground blur",
+      "soft bokeh background",
+      "rack focus on midground",
+      "medium depth of field",
+    ],
+    soundRefs: [
+      "lo-fi hip hop beat",
+      "deep house groove",
+      "jazz piano late night",
+      "ambient drone",
+    ],
+  },
+  "Sunset Pulse": {
+    viewpoints: [
+      "wide establishing shot",
+      "low angle looking up",
+      "eye-level street view",
+      "medium distance with depth",
+    ],
+    palettes: [
+      "warm amber and deep brown",
+      "soft peach and dusty rose",
+      "warm terracotta and rust",
+    ],
+    compositions: [
+      "leading lines to horizon",
+      "rule of thirds",
+      "diagonal flow left to right",
+      "S-curve depth",
+    ],
+    textures: [
+      "aged wood",
+      "rough brick",
+      "matte concrete",
+      "soft velvet",
+    ],
+    depths: [
+      "deep infinite focus",
+      "medium depth of field",
+      "soft bokeh background",
+    ],
+    soundRefs: [
+      "ethereal vocal pad",
+      "jazz piano late night",
+      "Afrobeat rhythm",
+      "ambient drone",
+    ],
+  },
+  "Neon Deck": {
+    viewpoints: [
+      "low angle looking up",
+      "dramatic worm's eye",
+      "eye-level street view",
+      "over-the-shoulder",
+    ],
+    palettes: [
+      "neon magenta and deep black",
+      "synthwave purple and cyan",
+      "rich violet and gold",
+    ],
+    compositions: [
+      "diagonal flow left to right",
+      "layered depth planes",
+      "frame within a frame",
+      "asymmetric weight right",
+    ],
+    textures: [
+      "wet chrome",
+      "brushed metal",
+      "translucent resin",
+      "matte concrete",
+    ],
+    depths: [
+      "soft bokeh background",
+      "shallow focus with foreground blur",
+      "rack focus on midground",
+    ],
+    soundRefs: [
+      "synthwave electro pulse",
+      "vaporwave tape hiss",
+      "festival EDM drop",
+      "city rain ambience",
+    ],
+  },
+  "Fantasy Tech": {
+    viewpoints: [
+      "wide establishing shot",
+      "bird's eye overhead",
+      "isometric perspective",
+      "medium distance with depth",
+    ],
+    palettes: [
+      "cool teal and slate gray",
+      "muted sage and cream",
+      "earthy olive and bronze",
+      "rich violet and gold",
+    ],
+    compositions: [
+      "centered symmetry",
+      "layered depth planes",
+      "leading lines to horizon",
+      "frame within a frame",
+    ],
+    textures: [
+      "translucent resin",
+      "frosted glass",
+      "polished marble",
+      "brushed metal",
+    ],
+    depths: [
+      "deep infinite focus",
+      "medium depth of field",
+      "tack-sharp foreground",
+    ],
+    soundRefs: [
+      "ambient drone",
+      "ethereal vocal pad",
+      "deep house groove",
+    ],
+  },
+  SynthWave: {
+    viewpoints: [
+      "wide establishing shot",
+      "low angle looking up",
+      "dramatic worm's eye",
+      "isometric perspective",
+    ],
+    palettes: [
+      "synthwave purple and cyan",
+      "neon magenta and deep black",
+      "soft peach and dusty rose",
+      "rich violet and gold",
+    ],
+    compositions: [
+      "centered symmetry",
+      "leading lines to horizon",
+      "asymmetric weight right",
+      "S-curve depth",
+    ],
+    textures: [
+      "wet chrome",
+      "translucent resin",
+      "polished marble",
+      "brushed metal",
+    ],
+    depths: [
+      "deep infinite focus",
+      "soft bokeh background",
+      "medium depth of field",
+    ],
+    soundRefs: [
+      "synthwave electro pulse",
+      "vaporwave tape hiss",
+      "festival EDM drop",
+      "ethereal vocal pad",
+    ],
+  },
 };
 
 export const LANE_NAMES = Object.keys(LANES);

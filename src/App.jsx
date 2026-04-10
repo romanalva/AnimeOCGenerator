@@ -19,6 +19,7 @@ import {
   DEFAULT_NEG_TERMS,
   DEPTHS,
   FOREGROUNDS,
+  LANE_SUPPORT_POOLS,
   LANE_NAMES,
   LANES,
   RATIO_INFO,
@@ -79,6 +80,7 @@ export default function App() {
   const displayLane = result?.lane || activeLane;
   const laneConfig = LANES[displayLane];
   const accentColor = laneConfig.color;
+  const laneSupportPools = LANE_SUPPORT_POOLS[displayLane] || {};
 
   const buildSlotsResult = useCallback(
     (lane, inputLocks = {}, overrides = {}) =>
@@ -148,6 +150,7 @@ export default function App() {
 
       const target = buildSlotsResult(lane, nextLocks, overrides);
       const currentLane = LANES[lane];
+      const laneSupport = LANE_SUPPORT_POOLS[lane] || {};
       let tick = 0;
       clearInterval(ticker.current);
 
@@ -160,7 +163,11 @@ export default function App() {
           details: nextLocks.details ? target.details : tick < 7 ? pickN(currentLane.details, 2) : target.details,
           style: nextLocks.style ? target.style : tick < 10 ? pick(currentLane.style) : target.style,
           ratio: target.ratio,
-          viewpoint: nextLocks.viewpoint ? target.viewpoint : tick < 8 ? pick(VIEWPOINTS) : target.viewpoint,
+          viewpoint: nextLocks.viewpoint
+            ? target.viewpoint
+            : tick < 8
+              ? pick(laneSupport.viewpoints || VIEWPOINTS)
+              : target.viewpoint,
           timeOfDay: nextLocks.timeOfDay ? target.timeOfDay : tick < 6 ? pick(TIMES_OF_DAY) : target.timeOfDay,
           season: nextLocks.season ? target.season : tick < 5 ? pick(SEASONS) : target.season,
           foreground: nextLocks.foreground
@@ -168,11 +175,31 @@ export default function App() {
             : tick < 7
               ? pick(FOREGROUNDS[lane] || FOREGROUNDS["Neon Deck"])
               : target.foreground,
-          palette: nextLocks.palette ? target.palette : tick < 9 ? pick(COLOR_PALETTES) : target.palette,
-          composition: nextLocks.composition ? target.composition : tick < 8 ? pick(COMPOSITIONS) : target.composition,
-          texture: nextLocks.texture ? target.texture : tick < 7 ? pick(TEXTURES) : target.texture,
-          dof: nextLocks.dof ? target.dof : tick < 6 ? pick(DEPTHS) : target.dof,
-          soundRef: nextLocks.soundRef ? target.soundRef : tick < 8 ? pick(SOUND_REFS) : target.soundRef,
+          palette: nextLocks.palette
+            ? target.palette
+            : tick < 9
+              ? pick(laneSupport.palettes || COLOR_PALETTES)
+              : target.palette,
+          composition: nextLocks.composition
+            ? target.composition
+            : tick < 8
+              ? pick(laneSupport.compositions || COMPOSITIONS)
+              : target.composition,
+          texture: nextLocks.texture
+            ? target.texture
+            : tick < 7
+              ? pick(laneSupport.textures || TEXTURES)
+              : target.texture,
+          dof: nextLocks.dof
+            ? target.dof
+            : tick < 6
+              ? pick(laneSupport.depths || DEPTHS)
+              : target.dof,
+          soundRef: nextLocks.soundRef
+            ? target.soundRef
+            : tick < 8
+              ? pick(laneSupport.soundRefs || SOUND_REFS)
+              : target.soundRef,
         };
 
         setLiveSlots(nextLiveSlots);
@@ -238,7 +265,7 @@ export default function App() {
     () =>
       slots
         ? {
-            viewpoint: VIEWPOINTS,
+            viewpoint: laneSupportPools.viewpoints || VIEWPOINTS,
             env: LANES[displayLane].environments,
             timeOfDay: TIMES_OF_DAY,
             season: SEASONS,
@@ -246,17 +273,17 @@ export default function App() {
             light: LANES[displayLane].lighting,
             weather: LANES[displayLane].weather,
             foreground: FOREGROUNDS[displayLane] || FOREGROUNDS["Neon Deck"],
-            texture: TEXTURES,
-            dof: DEPTHS,
-            soundRef: SOUND_REFS,
-            palette: COLOR_PALETTES,
-            composition: COMPOSITIONS,
+            texture: laneSupportPools.textures || TEXTURES,
+            dof: laneSupportPools.depths || DEPTHS,
+            soundRef: laneSupportPools.soundRefs || SOUND_REFS,
+            palette: laneSupportPools.palettes || COLOR_PALETTES,
+            composition: laneSupportPools.compositions || COMPOSITIONS,
             details: LANES[displayLane].details,
             style: LANES[displayLane].style,
             ratio: LANES[displayLane].ratios,
           }
         : {},
-    [displayLane, slots],
+    [displayLane, laneSupportPools, slots],
   );
 
   const slotDefinitions = useMemo(

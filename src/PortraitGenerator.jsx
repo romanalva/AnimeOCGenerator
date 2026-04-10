@@ -7,6 +7,7 @@ import {
   FIELD_GROUPS,
   FIELD_LABELS,
   generatePrompt,
+  getOrientationForAspectRatio,
   MOODS,
 } from "./portraitData";
 
@@ -76,8 +77,10 @@ export function PortraitGenerator({ onSwitchMode }) {
             FIELD_LABELS[field] ?? field,
             field,
             prompt[field],
-            DATA[field] ?? [],
-            "",
+            field === "orientation"
+              ? [getOrientationForAspectRatio(prompt.aspect_ratio)]
+              : DATA[field] ?? [],
+            field === "orientation" ? "Derived from aspect ratio" : "",
           ])
         : [],
     [prompt],
@@ -205,7 +208,15 @@ export function PortraitGenerator({ onSwitchMode }) {
                   setLocks((previous) => ({ ...previous, [key]: !previous[key] }))
                 }
                 onChange={(nextValue) => {
-                  setPrompt((previous) => ({ ...previous, [key]: nextValue }));
+                  setPrompt((previous) =>
+                    key === "aspect_ratio"
+                      ? {
+                          ...previous,
+                          aspect_ratio: nextValue,
+                          orientation: getOrientationForAspectRatio(nextValue),
+                        }
+                      : { ...previous, [key]: nextValue },
+                  );
                   setLocks((previous) => ({ ...previous, [key]: true }));
                   setCardKey((previous) => previous + 1);
                 }}
