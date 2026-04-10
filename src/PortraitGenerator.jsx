@@ -64,7 +64,16 @@ function writeToClipboard(text, onDone) {
   copyFallback(text, onDone);
 }
 
-function FieldRow({ field, label, value, options, locked, onToggleLock, onChange }) {
+function FieldRow({
+  field,
+  label,
+  value,
+  options,
+  locked,
+  onToggleLock,
+  onChange,
+  stacked,
+}) {
   const isMulti = Array.isArray(value);
 
   return (
@@ -72,7 +81,8 @@ function FieldRow({ field, label, value, options, locked, onToggleLock, onChange
       style={{
         display: "flex",
         alignItems: "flex-start",
-        gap: 10,
+        flexDirection: stacked ? "column" : "row",
+        gap: stacked ? 6 : 10,
         padding: "7px 14px",
         borderBottom: "1px solid rgba(255,255,255,0.04)",
       }}
@@ -99,14 +109,14 @@ function FieldRow({ field, label, value, options, locked, onToggleLock, onChange
           letterSpacing: 3,
           color: "#7070a8",
           textTransform: "uppercase",
-          width: 116,
+          width: stacked ? "auto" : 116,
           flexShrink: 0,
-          paddingTop: 2,
+          paddingTop: stacked ? 0 : 2,
         }}
       >
         {label}
       </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, width: stacked ? "100%" : "auto" }}>
         {isMulti ? (
           <select
             multiple
@@ -191,11 +201,16 @@ export function PortraitGenerator({ onSwitchMode }) {
   const [showHistory, setShowHistory] = useState(false);
   const [cardKey, setCardKey] = useState(0);
   const firstRun = useRef(true);
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window === "undefined" ? 1280 : window.innerWidth,
+  );
 
   const combinedPrompt = useMemo(
     () => (prompt ? buildCombinedPrompt(prompt) : ""),
     [prompt],
   );
+  const isCompact = viewportWidth < 900;
+  const isPhone = viewportWidth < 560;
 
   const reroll = useCallback(
     (nextMood = activeMood) => {
@@ -223,6 +238,12 @@ export function PortraitGenerator({ onSwitchMode }) {
       setPrompt(initial);
       setHistory([initial]);
     }
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const groups = FIELD_GROUPS.map((group) => ({
@@ -270,19 +291,19 @@ export function PortraitGenerator({ onSwitchMode }) {
         }}
       />
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 960, margin: "0 auto", padding: "26px 16px 80px" }}>
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 960, margin: "0 auto", padding: isPhone ? "18px 12px 72px" : "26px 16px 80px" }}>
         <div style={{ marginBottom: 22 }}>
-          <div style={{ display: "flex", gap: 7, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", flexDirection: isPhone ? "column" : "row", gap: 7, marginBottom: 12, flexWrap: "wrap" }}>
             <button
               className="pill"
               onClick={() => onSwitchMode("environment")}
-              style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.12)", color: "#8888aa" }}
+              style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.12)", color: "#8888aa", width: isPhone ? "100%" : "auto", minHeight: isPhone ? 42 : undefined }}
             >
               Environment Engine
             </button>
             <button
               className="pill"
-              style={{ background: `${ACCENT}15`, borderColor: `${ACCENT}55`, color: ACCENT }}
+              style={{ background: `${ACCENT}15`, borderColor: `${ACCENT}55`, color: ACCENT, width: isPhone ? "100%" : "auto", minHeight: isPhone ? 42 : undefined }}
             >
               Portrait Engine
             </button>
@@ -307,7 +328,7 @@ export function PortraitGenerator({ onSwitchMode }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 16, alignItems: "center" }}>
+        <div style={{ display: "flex", flexDirection: isPhone ? "column" : "row", flexWrap: "wrap", gap: 7, marginBottom: 16, alignItems: "stretch" }}>
           {Object.keys(MOODS).map((moodName) => {
             const active = activeMood === moodName;
             return (
@@ -325,6 +346,8 @@ export function PortraitGenerator({ onSwitchMode }) {
                   background: active ? `${ACCENT}15` : "rgba(255,255,255,0.02)",
                   borderColor: active ? `${ACCENT}66` : "rgba(255,255,255,0.12)",
                   color: active ? ACCENT : "#8888aa",
+                  width: isPhone ? "100%" : "auto",
+                  minHeight: isPhone ? 42 : undefined,
                 }}
               >
                 {moodName}
@@ -340,13 +363,13 @@ export function PortraitGenerator({ onSwitchMode }) {
               setHistory((previous) => [nextPrompt, ...previous].slice(0, 12));
               setCardKey((previous) => previous + 1);
             }}
-            style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.12)", color: "#8888aa" }}
+            style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.12)", color: "#8888aa", width: isPhone ? "100%" : "auto", minHeight: isPhone ? 42 : undefined }}
           >
             Clear Preset
           </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 0.9fr)", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isCompact ? "1fr" : "minmax(0, 1.08fr) minmax(300px, 0.92fr)", gap: 14 }}>
           <div>
             {groups.map((group) => (
               <div
@@ -380,6 +403,7 @@ export function PortraitGenerator({ onSwitchMode }) {
                     value={item.value}
                     options={item.options}
                     locked={Boolean(locks[item.field])}
+                    stacked={isCompact}
                     onToggleLock={(field) =>
                       setLocks((previous) => ({ ...previous, [field]: !previous[field] }))
                     }
@@ -395,13 +419,14 @@ export function PortraitGenerator({ onSwitchMode }) {
           </div>
 
           <div>
-            <div style={{ display: "flex", gap: 9, marginBottom: 14, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", flexDirection: isPhone ? "column" : "row", gap: 9, marginBottom: 14, flexWrap: "wrap" }}>
               <button
                 className="roll-btn"
                 onClick={() => reroll()}
                 style={{
-                  flex: 1,
-                  minWidth: 210,
+                  flex: isPhone ? "none" : 1,
+                  minWidth: isPhone ? 0 : 210,
+                  width: isPhone ? "100%" : "auto",
                   padding: "13px 18px",
                   fontSize: 18,
                   border: `1px solid ${ACCENT}44`,
@@ -417,14 +442,14 @@ export function PortraitGenerator({ onSwitchMode }) {
                   setActiveMood("");
                   reroll("");
                 }}
-                style={{ padding: "13px 14px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", color: "#8888aa" }}
+                style={{ padding: "13px 14px", width: isPhone ? "100%" : "auto", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", color: "#8888aa" }}
               >
                 RANDOM
               </button>
               <button
                 className="roll-btn"
                 onClick={() => setShowHistory((previous) => !previous)}
-                style={{ padding: "13px 14px", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", color: "#8888aa" }}
+                style={{ padding: "13px 14px", width: isPhone ? "100%" : "auto", fontSize: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", color: "#8888aa" }}
               >
                 HISTORY
               </button>
@@ -453,6 +478,7 @@ export function PortraitGenerator({ onSwitchMode }) {
                     }}
                     style={{
                       display: "flex",
+                      flexDirection: isPhone ? "column" : "row",
                       alignItems: "center",
                       gap: 10,
                       padding: "8px 14px",
@@ -460,10 +486,10 @@ export function PortraitGenerator({ onSwitchMode }) {
                       cursor: "pointer",
                     }}
                   >
-                    <span style={{ fontSize: 9, color: ACCENT, letterSpacing: 2, textTransform: "uppercase", width: 90, flexShrink: 0 }}>
+                    <span style={{ fontSize: 9, color: ACCENT, letterSpacing: 2, textTransform: "uppercase", width: isPhone ? "auto" : 90, flexShrink: 0 }}>
                       {entry.mood}
                     </span>
-                    <span style={{ fontSize: 11, color: "#8888b0", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ fontSize: 11, color: "#8888b0", flex: 1, overflow: isPhone ? "visible" : "hidden", textOverflow: isPhone ? "clip" : "ellipsis", whiteSpace: isPhone ? "normal" : "nowrap" }}>
                       {entry.setting}
                     </span>
                   </div>
@@ -485,15 +511,17 @@ export function PortraitGenerator({ onSwitchMode }) {
                 <div
                   style={{
                     display: "flex",
+                    flexDirection: isCompact ? "column" : "row",
                     justifyContent: "space-between",
-                    alignItems: "center",
+                    alignItems: isCompact ? "stretch" : "center",
                     borderBottom: "1px solid rgba(255,255,255,0.05)",
-                    padding: "0 12px",
+                    padding: isCompact ? "8px 12px" : "0 12px",
                     background: "rgba(255,255,255,0.01)",
                     overflowX: "auto",
+                    gap: isCompact ? 8 : 0,
                   }}
                 >
-                  <div style={{ display: "flex", flexShrink: 0 }}>
+                  <div style={{ display: "flex", flexDirection: isPhone ? "column" : "row", flexShrink: 0, width: isCompact ? "100%" : "auto" }}>
                     {[
                       ["prompt", "Prompt"],
                       ["json", "JSON"],
@@ -502,13 +530,13 @@ export function PortraitGenerator({ onSwitchMode }) {
                         key={key}
                         className="tab-btn"
                         onClick={() => setTab(key)}
-                        style={{ color: tab === key ? ACCENT : "#7070a0", borderBottomColor: tab === key ? ACCENT : "transparent" }}
+                        style={{ color: tab === key ? ACCENT : "#7070a0", borderBottomColor: tab === key ? ACCENT : "transparent", width: isPhone ? "100%" : "auto" }}
                       >
                         {label}
                       </button>
                     ))}
                   </div>
-                  <div style={{ display: "flex", gap: 5 }}>
+                  <div style={{ display: "flex", flexDirection: isPhone ? "column" : "row", flexWrap: isCompact ? "wrap" : "nowrap", gap: 5, width: isCompact ? "100%" : "auto" }}>
                     <button
                       className="pill"
                       onClick={() => {
@@ -517,7 +545,7 @@ export function PortraitGenerator({ onSwitchMode }) {
                           setTimeout(() => setCopied(false), 2000);
                         });
                       }}
-                      style={{ color: copied ? ACCENT : "#7878a8", borderColor: copied ? `${ACCENT}77` : "#252540", background: copied ? `${ACCENT}15` : "transparent" }}
+                      style={{ color: copied ? ACCENT : "#7878a8", borderColor: copied ? `${ACCENT}77` : "#252540", background: copied ? `${ACCENT}15` : "transparent", width: isPhone ? "100%" : "auto", minHeight: isPhone ? 42 : undefined }}
                     >
                       {copied ? "COPIED" : "COPY PROMPT"}
                     </button>
@@ -529,7 +557,7 @@ export function PortraitGenerator({ onSwitchMode }) {
                           setTimeout(() => setCopiedJson(false), 2000);
                         });
                       }}
-                      style={{ color: copiedJson ? ACCENT : "#7878a8", borderColor: copiedJson ? `${ACCENT}77` : "#252540", background: copiedJson ? `${ACCENT}15` : "transparent" }}
+                      style={{ color: copiedJson ? ACCENT : "#7878a8", borderColor: copiedJson ? `${ACCENT}77` : "#252540", background: copiedJson ? `${ACCENT}15` : "transparent", width: isPhone ? "100%" : "auto", minHeight: isPhone ? 42 : undefined }}
                     >
                       {copiedJson ? "COPIED" : "COPY JSON"}
                     </button>

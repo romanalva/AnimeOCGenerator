@@ -27,7 +27,7 @@ export function ControlsPanel({
 }) {
   return (
     <>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
+      <div className="responsive-pill-row" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
         {laneNames.map((name) => {
           const laneColor = lanes[name].color;
           const active = activeLane === name;
@@ -48,7 +48,7 @@ export function ControlsPanel({
         })}
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 16, alignItems: "center" }}>
+      <div className="responsive-controls-row" style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 16, alignItems: "center" }}>
         <button
           className="pill"
           onClick={() => setOutputMode((mode) => (mode === "single" ? "collection" : "single"))}
@@ -61,7 +61,7 @@ export function ControlsPanel({
           {outputMode === "single" ? "SINGLE" : "COLLECTION"}
         </button>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div className="responsive-ratio-row" style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <select
             value={pinnedRatio || ""}
             onChange={(event) => setPinnedRatio(event.target.value || null)}
@@ -97,7 +97,7 @@ export function ControlsPanel({
           NEG EDITOR
         </button>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 7, marginLeft: "auto" }}>
+        <div className="responsive-toggle-row" style={{ display: "flex", alignItems: "center", gap: 7, marginLeft: "auto" }}>
           <span style={{ fontSize: 9, letterSpacing: 2, color: novaSol ? "#fb923c" : "#6868a0", textTransform: "uppercase" }}>
             NOVA SOL
           </span>
@@ -112,7 +112,7 @@ export function ControlsPanel({
       </div>
 
       {outputMode === "collection" && (
-        <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="responsive-theme-row" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 9, letterSpacing: 3, color: "#7070a8", textTransform: "uppercase", flexShrink: 0 }}>
             Collection Theme
           </span>
@@ -128,7 +128,7 @@ export function ControlsPanel({
 
       {showNegEditor && (
         <div className="fade-up" style={{ border: "1px solid rgba(255,77,109,0.2)", borderRadius: 4, padding: 14, marginBottom: 14, background: "rgba(30,5,12,0.6)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div className="responsive-neg-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <span style={{ fontSize: 9, letterSpacing: 3, color: "#ff7090", textTransform: "uppercase" }}>
               Negative Prompt Editor - {negTerms.length} terms
             </span>
@@ -146,7 +146,7 @@ export function ControlsPanel({
             ))}
           </div>
 
-          <div style={{ display: "flex", gap: 7 }}>
+          <div className="responsive-neg-input-row" style={{ display: "flex", gap: 7 }}>
             <input
               className="text-input"
               value={customNegInput}

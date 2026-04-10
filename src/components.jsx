@@ -88,6 +88,7 @@ export function SlotRow({
 
   return (
     <div
+      className="responsive-slot-row"
       style={{
         display: "flex",
         alignItems: "flex-start",
@@ -114,6 +115,7 @@ export function SlotRow({
         {locked ? "[LOCK]" : "[ ]"}
       </button>
       <span
+        className="responsive-slot-label"
         style={{
           fontSize: 9,
           letterSpacing: 3,
@@ -126,7 +128,7 @@ export function SlotRow({
       >
         {label}
       </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="responsive-slot-content" style={{ flex: 1, minWidth: 0 }}>
         {options?.length ? (
           <>
             <select

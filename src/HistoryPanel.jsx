@@ -26,6 +26,7 @@ export function HistoryPanel({
       }}
     >
       <div
+        className="responsive-history-header"
         style={{
           padding: "8px 14px",
           borderBottom: "1px solid rgba(255,255,255,0.05)",
@@ -42,6 +43,7 @@ export function HistoryPanel({
 
       {merged.map((entry, index) => (
         <div
+          className="responsive-history-row"
           key={`${entry.lane}-${entry.env}-${index}`}
           onClick={() => onLoad(entry)}
           style={{
@@ -55,6 +57,7 @@ export function HistoryPanel({
         >
           {entry._fav && <span style={{ color: "#fbbf24", fontSize: 10 }}>*</span>}
           <span
+            className="responsive-history-lane"
             style={{
               fontSize: 9,
               color: lanes[entry.lane].color,
@@ -67,6 +70,7 @@ export function HistoryPanel({
             {entry.lane}
           </span>
           <span
+            className="responsive-history-summary"
             style={{
               fontSize: 11,
               color: "#8888b0",

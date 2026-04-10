@@ -309,6 +309,88 @@ export default function App() {
         .neg-tag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 2px; font-size: 10px; border: 1px solid rgba(255,77,109,0.25); background: rgba(255,77,109,0.06); color: #cc7080; letter-spacing: 1px; }
         .neg-tag button { background: none; border: none; cursor: pointer; color: #ff4d6d; font-size: 11px; padding: 0; line-height: 1; }
         .text-input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 2px; color: #c8c8e0; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 6px 10px; outline: none; }
+        @media (max-width: 900px) {
+          .responsive-output-toolbar {
+            flex-direction: column;
+            align-items: stretch !important;
+            gap: 8px;
+            padding-top: 8px !important;
+            padding-bottom: 8px !important;
+          }
+          .responsive-tab-row {
+            overflow-x: auto;
+          }
+          .responsive-output-actions {
+            margin-left: 0 !important;
+            flex-wrap: wrap;
+          }
+        }
+        @media (max-width: 720px) {
+          .responsive-slot-row {
+            flex-direction: column;
+            gap: 6px;
+          }
+          .responsive-slot-label {
+            width: auto !important;
+            padding-top: 0 !important;
+          }
+          .responsive-slot-content {
+            width: 100%;
+          }
+          .responsive-action-bar {
+            gap: 8px !important;
+          }
+          .responsive-action-bar .roll-btn {
+            width: 100%;
+            min-width: 0 !important;
+          }
+          .responsive-pill-row .pill {
+            flex: 1 1 calc(50% - 7px);
+            min-height: 40px;
+          }
+          .responsive-controls-row {
+            align-items: stretch !important;
+          }
+          .responsive-controls-row > * {
+            width: 100%;
+          }
+          .responsive-ratio-row {
+            justify-content: space-between;
+          }
+          .responsive-ratio-row select {
+            flex: 1;
+            min-height: 40px;
+          }
+          .responsive-toggle-row {
+            margin-left: 0 !important;
+            justify-content: space-between;
+          }
+          .responsive-theme-row,
+          .responsive-neg-input-row,
+          .responsive-log-row,
+          .responsive-neg-header,
+          .responsive-history-header,
+          .responsive-history-row {
+            flex-direction: column;
+            align-items: stretch !important;
+          }
+          .responsive-neg-input-row > *,
+          .responsive-log-row > * {
+            width: 100%;
+          }
+          .responsive-output-actions > * {
+            flex: 1 1 calc(50% - 5px);
+            min-height: 40px;
+          }
+          .responsive-history-lane {
+            width: auto !important;
+          }
+          .responsive-history-summary {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+          }
+        }
       `}</style>
 
       <div
@@ -403,7 +485,7 @@ export default function App() {
           }}
         />
 
-        <div style={{ display: "flex", gap: 9, marginBottom: 20, flexWrap: "wrap" }}>
+        <div className="responsive-action-bar" style={{ display: "flex", gap: 9, marginBottom: 20, flexWrap: "wrap" }}>
           <button
             className="roll-btn"
             disabled={rolling}

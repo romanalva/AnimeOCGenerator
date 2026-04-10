@@ -29,6 +29,7 @@ export function OutputCard({
       }}
     >
       <div
+        className="responsive-output-toolbar"
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -39,7 +40,7 @@ export function OutputCard({
           overflowX: "auto",
         }}
       >
-        <div style={{ display: "flex", flexShrink: 0 }}>
+        <div className="responsive-tab-row" style={{ display: "flex", flexShrink: 0 }}>
           {tabs.map(([key, label]) => (
             <button
               key={key}
@@ -54,7 +55,7 @@ export function OutputCard({
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 5, marginLeft: 8 }}>
+        <div className="responsive-output-actions" style={{ display: "flex", gap: 5, marginLeft: 8 }}>
           <button className="icon-btn" onClick={onDownloadJson} style={{ color: "#7878a8" }}>
             DOWNLOAD JSON
           </button>
@@ -248,7 +249,7 @@ export function OutputCard({
           Version Log {versionLogValue ? "- saved" : ""}
         </div>
         {versionLogValue && <div style={{ fontSize: 11, color: "#7878a8", marginBottom: 6 }}>{versionLogValue}</div>}
-        <div style={{ display: "flex", gap: 7 }}>
+        <div className="responsive-log-row" style={{ display: "flex", gap: 7 }}>
           <input
             className="text-input"
             value={logInput}
