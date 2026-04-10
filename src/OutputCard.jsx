@@ -9,9 +9,12 @@ export const OutputCard = memo(function OutputCard({
   result,
   collection,
   copyAllDone,
-  copied,
+  copiedKey,
   onCopyAll,
-  onCopy,
+  onCopyPrompt,
+  onCopyChatgptPrompt,
+  onCopyNanoPrompt,
+  onCopyJson,
   onDownloadJson,
   ratioInfo,
   versionLogValue,
@@ -60,6 +63,60 @@ export const OutputCard = memo(function OutputCard({
           <button className="icon-btn" onClick={onDownloadJson} style={{ color: "#7878a8" }}>
             DOWNLOAD JSON
           </button>
+          {tab === "combined" && (
+            <>
+              <button
+                className="pill"
+                onClick={onCopyPrompt}
+                style={{
+                  color: copiedKey === "regular" ? accentColor : "#7878a8",
+                  borderColor: copiedKey === "regular" ? `${accentColor}77` : "#252540",
+                  background: copiedKey === "regular" ? `${accentColor}15` : "transparent",
+                }}
+              >
+                {copiedKey === "regular" ? "COPIED" : "COPY PROMPT"}
+              </button>
+              <button
+                className="pill"
+                onClick={onCopyChatgptPrompt}
+                style={{
+                  color: copiedKey === "chatgpt-prompt" ? accentColor : "#7878a8",
+                  borderColor: copiedKey === "chatgpt-prompt" ? `${accentColor}77` : "#252540",
+                  background: copiedKey === "chatgpt-prompt" ? `${accentColor}15` : "transparent",
+                }}
+              >
+                {copiedKey === "chatgpt-prompt" ? "COPIED" : "COPY CHATGPT PROMPT"}
+              </button>
+              <button
+                className="pill"
+                onClick={onCopyNanoPrompt}
+                style={{
+                  color: copiedKey === "nano-prompt" ? accentColor : "#7878a8",
+                  borderColor: copiedKey === "nano-prompt" ? `${accentColor}77` : "#252540",
+                  background: copiedKey === "nano-prompt" ? `${accentColor}15` : "transparent",
+                }}
+              >
+                {copiedKey === "nano-prompt" ? "COPIED" : "COPY NANO PROMPT"}
+              </button>
+            </>
+          )}
+          {tab !== "combined" && (
+            <button
+              className="pill"
+              onClick={onCopyJson}
+              style={{
+                color: copiedKey === "tab" ? accentColor : "#7878a8",
+                borderColor: copiedKey === "tab" ? `${accentColor}77` : "#252540",
+                background: copiedKey === "tab" ? `${accentColor}15` : "transparent",
+              }}
+            >
+              {copiedKey === "tab"
+                ? "COPIED"
+                : tab === "nano" || tab === "chatgpt"
+                  ? "COPY JSON"
+                  : "COPY TAB"}
+            </button>
+          )}
           <button
             className="pill"
             onClick={onCopyAll}
@@ -71,30 +128,34 @@ export const OutputCard = memo(function OutputCard({
           >
             {copyAllDone ? "ALL COPIED" : "COPY ALL"}
           </button>
-          <button
-            className="pill"
-            onClick={onCopy}
-            style={{
-              color: copied ? accentColor : "#7878a8",
-              borderColor: copied ? `${accentColor}77` : "#252540",
-              background: copied ? `${accentColor}15` : "transparent",
-            }}
-          >
-            {copied ? "COPIED" : "COPY"}
-          </button>
         </div>
       </div>
 
       {tab === "combined" && (
         <div style={{ padding: 16, fontSize: 12, lineHeight: 1.9, maxHeight: 400, overflowY: "auto" }}>
-          <div style={{ color: "#c8c8e0", marginBottom: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-            {result.positive}
+          <div style={{ fontSize: 9, letterSpacing: 3, color: accentColor, textTransform: "uppercase", marginBottom: 8 }}>
+            Regular Prompt
+          </div>
+          <div style={{ color: "#c8c8e0", marginBottom: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {result.regularPrompt}
+          </div>
+          <div style={{ fontSize: 9, letterSpacing: 3, color: accentColor, textTransform: "uppercase", marginBottom: 8 }}>
+            ChatGPT Prompt
+          </div>
+          <div style={{ color: "#b7b7d4", marginBottom: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {result.chatgptPrompt}
+          </div>
+          <div style={{ fontSize: 9, letterSpacing: 3, color: accentColor, textTransform: "uppercase", marginBottom: 8 }}>
+            Nano Banana Prompt
+          </div>
+          <div style={{ color: "#b7b7d4", marginBottom: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {result.nanoPrompt}
           </div>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 12 }}>
             <span style={{ fontSize: 9, letterSpacing: 3, color: "#ff4d6d", textTransform: "uppercase" }}>
               Negative Prompt:{" "}
             </span>
-            <span style={{ color: "#6868a0", fontSize: 11 }}>{result.negative}</span>
+            <span style={{ color: "#6868a0", fontSize: 11 }}>{result.negativePrompt}</span>
           </div>
         </div>
       )}
@@ -232,7 +293,7 @@ export const OutputCard = memo(function OutputCard({
                 Prompt {index + 1} - {entry.lane} | {entry.ratio}
               </div>
               <div style={{ fontSize: 11, color: "#9898b8", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.7 }}>
-                {entry.positive}
+                {entry.regularPrompt || entry.positive}
               </div>
             </div>
           ))}

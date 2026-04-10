@@ -62,6 +62,49 @@ const ASPECT_RATIO_TO_ORIENTATION = {
   "21:9 ultrawide (cinematic)": "landscape",
 };
 
+const PORTRAIT_PLATFORM_CONFIG = {
+  "9:16 vertical (portrait)": {
+    chatgptSize: "1024x1792",
+    nanoAspectRatio: "9:16",
+    nanoResolution: "1024x1792",
+  },
+  "2:3 vertical (portrait)": {
+    chatgptSize: "1024x1536",
+    nanoAspectRatio: "2:3",
+    nanoResolution: "1024x1536",
+  },
+  "3:4 vertical (portrait)": {
+    chatgptSize: "1024x1365",
+    nanoAspectRatio: "3:4",
+    nanoResolution: "1024x1365",
+  },
+  "1:1 square": {
+    chatgptSize: "1024x1024",
+    nanoAspectRatio: "1:1",
+    nanoResolution: "1024x1024",
+  },
+  "4:3 landscape": {
+    chatgptSize: "1536x1152",
+    nanoAspectRatio: "4:3",
+    nanoResolution: "1536x1152",
+  },
+  "3:2 landscape": {
+    chatgptSize: "1536x1024",
+    nanoAspectRatio: "3:2",
+    nanoResolution: "1536x1024",
+  },
+  "16:9 landscape (cinematic)": {
+    chatgptSize: "1792x1024",
+    nanoAspectRatio: "16:9",
+    nanoResolution: "1792x1024",
+  },
+  "21:9 ultrawide (cinematic)": {
+    chatgptSize: "1792x1024",
+    nanoAspectRatio: "21:9",
+    nanoResolution: "1792x1024",
+  },
+};
+
 const STYLE_PACKAGES = {
   bishoujo_key_visual: {
     anime_render_style: "bishoujo key visual illustration",
@@ -645,7 +688,7 @@ function resolveStylePackage(stylePackageId, scenario) {
       ? stylePackageId
       : pickFrom(scenario.style_packages, Object.keys(STYLE_PACKAGES));
 
-  return STYLE_PACKAGES[selectedId];
+  return { id: selectedId, config: STYLE_PACKAGES[selectedId] };
 }
 
 function resolveScenario(overrides = {}) {
@@ -653,11 +696,33 @@ function resolveScenario(overrides = {}) {
     overrides.scenario && SCENARIO_BUNDLES[overrides.scenario]
       ? overrides.scenario
       : pickFrom(DEFAULT_SCENARIO_IDS, DEFAULT_SCENARIO_IDS);
-  return SCENARIO_BUNDLES[scenarioId];
+  return { id: scenarioId, config: SCENARIO_BUNDLES[scenarioId] };
 }
 
 function resolveOrientation(aspectRatio) {
   return ASPECT_RATIO_TO_ORIENTATION[aspectRatio] || "portrait";
+}
+
+function resolvePortraitPlatformConfig(aspectRatio) {
+  return (
+    PORTRAIT_PLATFORM_CONFIG[aspectRatio] || {
+      chatgptSize: "1024x1024",
+      nanoAspectRatio: "1:1",
+      nanoResolution: "1024x1024",
+    }
+  );
+}
+
+function humanizeId(value = "") {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((token) => token[0].toUpperCase() + token.slice(1))
+    .join(" ");
+}
+
+function joinNatural(parts, joiner = ", ") {
+  return parts.filter(Boolean).join(joiner);
 }
 
 function buildScenarioAwareTags(overrides, scenario, stylePackage) {
@@ -697,6 +762,106 @@ function buildScenarioAwareNegatives(overrides, scenario, stylePackage) {
 
 export function getOrientationForAspectRatio(aspectRatio) {
   return resolveOrientation(aspectRatio);
+}
+
+function buildPortraitNegativePrompt(prompt) {
+  return uniqueList(prompt.negative_tags, 14).join(", ");
+}
+
+function buildPortraitRegularPrompt(prompt) {
+  return `Create a premium anime portrait in ${prompt.aspect_ratio} with a ${prompt.shot_type} and ${prompt.composition}, framed through a ${prompt.camera_lens}. The subject should feel ${prompt.age_aesthetic} with a ${prompt.body_type} presence, wearing ${prompt.outfit} with ${prompt.accessories}, posed ${prompt.pose}. Give her ${prompt.expression}, ${prompt.makeup}, ${prompt.face_shape}, ${prompt.nose}, ${prompt.lips}, ${prompt.eye_color} eyes with ${prompt.eye_style}, ${prompt.hair_color} hair that is ${prompt.hair_length} and ${prompt.hair_style}, plus ${prompt.skin_tone} skin with ${prompt.blush}. Place her in ${prompt.setting}, lit by ${prompt.lighting} during ${prompt.time_of_day} with ${prompt.weather_atmosphere}, carrying a ${prompt.mood} mood and a ${prompt.color_palette} color script. Render it as ${prompt.anime_render_style} with ${prompt.linework_style}, ${prompt.shading_style}, and ${prompt.anime_eye_render}. Finish with ${prompt.style_tags.join(", ")}.`;
+}
+
+function buildPortraitChatGptPrompt(prompt) {
+  return `Create a polished anime portrait illustration. Use a ${prompt.aspect_ratio} canvas with ${prompt.orientation} orientation, a ${prompt.shot_type}, ${prompt.composition}, and a ${prompt.camera_lens}. Design the subject as ${prompt.age_aesthetic} with a ${prompt.body_type} build. Face and expression: ${joinNatural([prompt.expression, prompt.makeup, prompt.face_shape, prompt.nose, prompt.lips])}. Hair, eyes, and complexion: ${joinNatural([`${prompt.hair_color} hair`, prompt.hair_length, prompt.hair_style, `${prompt.eye_color} eyes`, prompt.eye_style, `${prompt.skin_tone} skin`, prompt.blush])}. Wardrobe and styling: ${prompt.outfit}, ${prompt.accessories}. Pose: ${prompt.pose}. Environment: ${prompt.setting}. Light the scene with ${prompt.lighting} at ${prompt.time_of_day}, with ${prompt.weather_atmosphere}, a ${prompt.mood} mood, and a ${prompt.color_palette} palette. Render in ${joinNatural([prompt.anime_render_style, prompt.linework_style, prompt.shading_style, prompt.anime_eye_render])}. Keep the final image coherent, commercial, and premium, with ${prompt.style_tags.join(", ")}. Exclude text, watermarking, malformed anatomy, and broken hands.`;
+}
+
+function buildPortraitNanoPrompt(prompt) {
+  return `Format: ${prompt.aspect_ratio}; ${prompt.orientation} orientation; ${prompt.shot_type}; ${prompt.composition}; lens ${prompt.camera_lens}. Subject: ${prompt.age_aesthetic}, ${prompt.body_type}, ${prompt.expression}. Face: ${prompt.face_shape}; ${prompt.nose}; ${prompt.lips}; ${prompt.eye_color} eyes; ${prompt.eye_style}. Hair and skin: ${prompt.hair_color}; ${prompt.hair_length}; ${prompt.hair_style}; ${prompt.skin_tone}; ${prompt.blush}. Wardrobe: ${prompt.outfit}. Accessories: ${prompt.accessories}. Pose: ${prompt.pose}. Scene: ${prompt.setting}. Light and atmosphere: ${prompt.lighting}; ${prompt.time_of_day}; ${prompt.weather_atmosphere}; ${prompt.mood}; ${prompt.color_palette}. Render: ${prompt.anime_render_style}; ${prompt.linework_style}; ${prompt.shading_style}; ${prompt.anime_eye_render}. Tags: ${prompt.style_tags.join(", ")}.`;
+}
+
+function buildPortraitSummary(prompt) {
+  return {
+    scenario: prompt.scenario_id,
+    style_package: prompt.style_package_id,
+    aspect_ratio: prompt.aspect_ratio,
+    orientation: prompt.orientation,
+    shot_type: prompt.shot_type,
+    composition: prompt.composition,
+    camera_lens: prompt.camera_lens,
+    setting: prompt.setting,
+    lighting: prompt.lighting,
+    mood: prompt.mood,
+    outfit: prompt.outfit,
+    pose: prompt.pose,
+    style_tags: prompt.style_tags,
+  };
+}
+
+function decoratePortraitPrompt(prompt) {
+  const platformConfig = resolvePortraitPlatformConfig(prompt.aspect_ratio);
+  const regularPrompt = buildPortraitRegularPrompt(prompt);
+  const chatgptPrompt = buildPortraitChatGptPrompt(prompt);
+  const nanoPrompt = buildPortraitNanoPrompt(prompt);
+  const negativePrompt = buildPortraitNegativePrompt(prompt);
+  const summary = buildPortraitSummary(prompt);
+  const chatgptCombined = `${chatgptPrompt}\n\nNegative prompt: ${negativePrompt}`;
+  const nanoCombined = `${nanoPrompt}\n\nNegative prompt: ${negativePrompt}`;
+
+  return {
+    ...prompt,
+    regularPrompt,
+    chatgptPrompt,
+    nanoPrompt,
+    negativePrompt,
+    combinedPrompt: `${regularPrompt}\n\nNegative prompt: ${negativePrompt}`,
+    chatGPT: {
+      model: "gpt-4o",
+      prompt: {
+        regular: regularPrompt,
+        optimized: chatgptPrompt,
+        negative: negativePrompt,
+        combined: chatgptCombined,
+      },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You generate polished anime portrait illustrations with strong composition, attractive facial rendering, coherent wardrobe styling, and no text or watermarks.",
+        },
+        { role: "user", content: chatgptCombined },
+      ],
+      image_generation: {
+        size: platformConfig.chatgptSize,
+        quality: "hd",
+        style: prompt.style_package_id === "synthwave_anime_portrait" ? "vivid" : "natural",
+        n: 1,
+      },
+      slot_summary: summary,
+    },
+    nanoBanana: {
+      platform: "Nano Banana",
+      prompt: {
+        regular: regularPrompt,
+        positive: nanoPrompt,
+        negative: negativePrompt,
+        combined: nanoCombined,
+      },
+      parameters: {
+        aspect_ratio: platformConfig.nanoAspectRatio,
+        resolution: platformConfig.nanoResolution,
+        quality: "high",
+        style_strength: 0.82,
+        no_text: true,
+        no_watermark: true,
+      },
+      slot_summary: summary,
+    },
+  };
+}
+
+export function buildPromptOutputs(prompt) {
+  return decoratePortraitPrompt(prompt);
 }
 
 export const MOODS = {
@@ -770,13 +935,20 @@ export const FIELD_GROUPS = [
 ];
 
 export const generatePrompt = (overrides = {}) => {
-  const scenario = resolveScenario(overrides);
-  const stylePackage = resolveStylePackage(overrides.style_package, scenario);
+  const { id: scenarioId, config: scenario } = resolveScenario(overrides);
+  const { id: stylePackageId, config: stylePackage } = resolveStylePackage(
+    overrides.style_package,
+    scenario,
+  );
   const aspectRatio =
     overrides.aspect_ratio ??
     pickFrom(scenario.aspect_ratios, DATA.aspect_ratio);
 
-  return {
+  return decoratePortraitPrompt({
+    scenario_id: scenarioId,
+    scenario_label: humanizeId(scenarioId),
+    style_package_id: stylePackageId,
+    style_package_label: humanizeId(stylePackageId),
     aspect_ratio: aspectRatio,
     orientation: resolveOrientation(aspectRatio),
     shot_type: overrides.shot_type ?? pickFrom(scenario.shot_type, DATA.shot_type),
@@ -813,8 +985,7 @@ export const generatePrompt = (overrides = {}) => {
     mood: overrides.mood ?? pickFrom(scenario.moods, DATA.mood),
     style_tags: buildScenarioAwareTags(overrides, scenario, stylePackage),
     negative_tags: buildScenarioAwareNegatives(overrides, scenario, stylePackage),
-  };
+  });
 };
 
-export const buildPromptString = (prompt) =>
-  `${prompt.aspect_ratio}, ${prompt.orientation} orientation. ${prompt.shot_type} framed with ${prompt.composition}, captured on a ${prompt.camera_lens}. Anime portrait of a ${prompt.age_aesthetic} subject with a ${prompt.body_type} build. Expression and facial styling: ${prompt.expression}, ${prompt.makeup}, ${prompt.face_shape}, ${prompt.nose}, ${prompt.lips}, ${prompt.eye_color} eyes with ${prompt.eye_style}. Hair and complexion: ${prompt.hair_color} hair, ${prompt.hair_length}, ${prompt.hair_style}, ${prompt.skin_tone} skin, ${prompt.blush}. Wardrobe and accessories: ${prompt.outfit}; ${prompt.accessories}. Pose: ${prompt.pose}. Setting: ${prompt.setting}. Lighting and atmosphere: ${prompt.lighting}, ${prompt.time_of_day}, ${prompt.weather_atmosphere}, ${prompt.mood}, ${prompt.color_palette} palette. Render package: ${prompt.anime_render_style}, ${prompt.linework_style}, ${prompt.shading_style}, ${prompt.anime_eye_render}. Finish cues: ${prompt.style_tags.join(", ")}.`;
+export const buildPromptString = (prompt) => buildPortraitRegularPrompt(prompt);

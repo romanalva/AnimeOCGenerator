@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { writeToClipboard } from "./browserUtils";
+import { downloadBlob, writeToClipboard } from "./browserUtils";
 import { RatioPreview, SlotRow } from "./components";
 import {
-  buildPromptString,
+  buildPromptOutputs,
   DATA,
   FIELD_GROUPS,
   FIELD_LABELS,
@@ -15,27 +15,23 @@ const ACCENT = "#f472b6";
 const DIM = "#2a0a1a";
 const ORDERED_FIELDS = FIELD_GROUPS.flatMap((group) => group.fields);
 
-function buildCombinedPrompt(prompt) {
-  return `${buildPromptString(prompt)}\n\nNegative prompt: ${prompt.negative_tags.join(", ")}`;
-}
-
 export function PortraitGenerator({ onSwitchMode }) {
   const [activeMood, setActiveMood] = useState("");
   const [prompt, setPrompt] = useState(null);
   const [locks, setLocks] = useState({});
   const [tab, setTab] = useState("prompt");
-  const [copied, setCopied] = useState(false);
-  const [copiedJson, setCopiedJson] = useState(false);
+  const [copiedKey, setCopiedKey] = useState("");
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [cardKey, setCardKey] = useState(0);
   const firstRun = useRef(true);
 
   const presetNames = useMemo(() => Object.keys(MOODS), []);
-  const combinedPrompt = useMemo(
-    () => (prompt ? buildCombinedPrompt(prompt) : ""),
-    [prompt],
-  );
+
+  const flashCopied = useCallback((key) => {
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(""), 2000);
+  }, []);
 
   const generateAndStore = useCallback((overrides = {}, nextMood = "") => {
     const nextPrompt = generatePrompt(overrides);
@@ -209,13 +205,15 @@ export function PortraitGenerator({ onSwitchMode }) {
                 }
                 onChange={(nextValue) => {
                   setPrompt((previous) =>
-                    key === "aspect_ratio"
-                      ? {
-                          ...previous,
-                          aspect_ratio: nextValue,
-                          orientation: getOrientationForAspectRatio(nextValue),
-                        }
-                      : { ...previous, [key]: nextValue },
+                    buildPromptOutputs(
+                      key === "aspect_ratio"
+                        ? {
+                            ...previous,
+                            aspect_ratio: nextValue,
+                            orientation: getOrientationForAspectRatio(nextValue),
+                          }
+                        : { ...previous, [key]: nextValue },
+                    ),
                   );
                   setLocks((previous) => ({ ...previous, [key]: true }));
                   setCardKey((previous) => previous + 1);
@@ -369,7 +367,8 @@ export function PortraitGenerator({ onSwitchMode }) {
               <div className="responsive-tab-row" style={{ display: "flex", flexShrink: 0 }}>
                 {[
                   ["prompt", "PROMPT"],
-                  ["json", "JSON"],
+                  ["chatgpt", "CHATGPT JSON"],
+                  ["nano", "NANO BANANA JSON"],
                 ].map(([key, label]) => (
                   <button
                     key={key}
@@ -384,43 +383,111 @@ export function PortraitGenerator({ onSwitchMode }) {
               <div className="responsive-output-actions" style={{ display: "flex", gap: 5, marginLeft: 8 }}>
                 <button
                   className="pill"
-                  onClick={() => {
-                    writeToClipboard(combinedPrompt, () => {
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    });
-                  }}
-                  style={{
-                    color: copied ? ACCENT : "#7878a8",
-                    borderColor: copied ? `${ACCENT}77` : "#252540",
-                    background: copied ? `${ACCENT}15` : "transparent",
-                  }}
+                  onClick={() =>
+                    downloadBlob(
+                      JSON.stringify(
+                        {
+                          chatGPT: prompt.chatGPT,
+                          nanoBanana: prompt.nanoBanana,
+                        },
+                        null,
+                        2,
+                      ),
+                      "application/json",
+                      `portrait-prompt-${Date.now()}.json`,
+                    )
+                  }
+                  style={{ color: "#7878a8", borderColor: "#252540", background: "transparent" }}
                 >
-                  {copied ? "COPIED" : "COPY PROMPT"}
+                  DOWNLOAD JSON
                 </button>
-                <button
-                  className="pill"
-                  onClick={() => {
-                    writeToClipboard(JSON.stringify(prompt, null, 2), () => {
-                      setCopiedJson(true);
-                      setTimeout(() => setCopiedJson(false), 2000);
-                    });
-                  }}
-                  style={{
-                    color: copiedJson ? ACCENT : "#7878a8",
-                    borderColor: copiedJson ? `${ACCENT}77` : "#252540",
-                    background: copiedJson ? `${ACCENT}15` : "transparent",
-                  }}
-                >
-                  {copiedJson ? "COPIED" : "COPY JSON"}
-                </button>
+                {tab === "prompt" && (
+                  <>
+                    <button
+                      className="pill"
+                      onClick={() => {
+                        writeToClipboard(prompt.regularPrompt, () => flashCopied("regular"));
+                      }}
+                      style={{
+                        color: copiedKey === "regular" ? ACCENT : "#7878a8",
+                        borderColor: copiedKey === "regular" ? `${ACCENT}77` : "#252540",
+                        background: copiedKey === "regular" ? `${ACCENT}15` : "transparent",
+                      }}
+                    >
+                      {copiedKey === "regular" ? "COPIED" : "COPY PROMPT"}
+                    </button>
+                    <button
+                      className="pill"
+                      onClick={() => {
+                        writeToClipboard(prompt.chatgptPrompt, () => flashCopied("chatgpt-prompt"));
+                      }}
+                      style={{
+                        color: copiedKey === "chatgpt-prompt" ? ACCENT : "#7878a8",
+                        borderColor: copiedKey === "chatgpt-prompt" ? `${ACCENT}77` : "#252540",
+                        background: copiedKey === "chatgpt-prompt" ? `${ACCENT}15` : "transparent",
+                      }}
+                    >
+                      {copiedKey === "chatgpt-prompt" ? "COPIED" : "COPY CHATGPT PROMPT"}
+                    </button>
+                    <button
+                      className="pill"
+                      onClick={() => {
+                        writeToClipboard(prompt.nanoPrompt, () => flashCopied("nano-prompt"));
+                      }}
+                      style={{
+                        color: copiedKey === "nano-prompt" ? ACCENT : "#7878a8",
+                        borderColor: copiedKey === "nano-prompt" ? `${ACCENT}77` : "#252540",
+                        background: copiedKey === "nano-prompt" ? `${ACCENT}15` : "transparent",
+                      }}
+                    >
+                      {copiedKey === "nano-prompt" ? "COPIED" : "COPY NANO PROMPT"}
+                    </button>
+                  </>
+                )}
+                {tab !== "prompt" && (
+                  <button
+                    className="pill"
+                    onClick={() =>
+                      writeToClipboard(
+                        JSON.stringify(
+                          tab === "chatgpt" ? prompt.chatGPT : prompt.nanoBanana,
+                          null,
+                          2,
+                        ),
+                        () => flashCopied("json"),
+                      )
+                    }
+                    style={{
+                      color: copiedKey === "json" ? ACCENT : "#7878a8",
+                      borderColor: copiedKey === "json" ? `${ACCENT}77` : "#252540",
+                      background: copiedKey === "json" ? `${ACCENT}15` : "transparent",
+                    }}
+                  >
+                    {copiedKey === "json" ? "COPIED" : "COPY JSON"}
+                  </button>
+                )}
               </div>
             </div>
 
             {tab === "prompt" && (
               <div style={{ padding: 16, fontSize: 12, lineHeight: 1.85, maxHeight: 520, overflowY: "auto" }}>
-                <div style={{ color: "#c8c8e0", marginBottom: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                  {buildPromptString(prompt)}
+                <div style={{ fontSize: 9, letterSpacing: 3, color: ACCENT, textTransform: "uppercase", marginBottom: 8 }}>
+                  Regular Prompt
+                </div>
+                <div style={{ color: "#c8c8e0", marginBottom: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {prompt.regularPrompt}
+                </div>
+                <div style={{ fontSize: 9, letterSpacing: 3, color: ACCENT, textTransform: "uppercase", marginBottom: 8 }}>
+                  ChatGPT Prompt
+                </div>
+                <div style={{ color: "#b7b7d4", marginBottom: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {prompt.chatgptPrompt}
+                </div>
+                <div style={{ fontSize: 9, letterSpacing: 3, color: ACCENT, textTransform: "uppercase", marginBottom: 8 }}>
+                  Nano Banana Prompt
+                </div>
+                <div style={{ color: "#b7b7d4", marginBottom: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {prompt.nanoPrompt}
                 </div>
                 <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 12 }}>
                   <div style={{ fontSize: 9, letterSpacing: 3, color: ACCENT, textTransform: "uppercase", marginBottom: 8 }}>
@@ -432,14 +499,20 @@ export function PortraitGenerator({ onSwitchMode }) {
                   <div style={{ fontSize: 9, letterSpacing: 3, color: "#ff4d6d", textTransform: "uppercase", marginBottom: 8 }}>
                     Negative Prompt
                   </div>
-                  <div style={{ color: "#6868a0" }}>{prompt.negative_tags.join(", ")}</div>
+                  <div style={{ color: "#6868a0" }}>{prompt.negativePrompt}</div>
                 </div>
               </div>
             )}
 
-            {tab === "json" && (
+            {tab === "chatgpt" && (
               <div style={{ padding: "14px 16px", fontSize: 11, lineHeight: 1.8, color: "#5dbd8a", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 520, overflowY: "auto", background: "rgba(0,0,0,0.2)" }}>
-                {JSON.stringify(prompt, null, 2)}
+                {JSON.stringify(prompt.chatGPT, null, 2)}
+              </div>
+            )}
+
+            {tab === "nano" && (
+              <div style={{ padding: "14px 16px", fontSize: 11, lineHeight: 1.8, color: "#5dbd8a", whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 520, overflowY: "auto", background: "rgba(0,0,0,0.2)" }}>
+                {JSON.stringify(prompt.nanoBanana, null, 2)}
               </div>
             )}
 

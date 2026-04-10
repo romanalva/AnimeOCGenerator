@@ -31,6 +31,61 @@ function getLaneSupportPool(laneName, key, fallback) {
   return LANE_SUPPORT_POOLS[laneName]?.[key] || fallback;
 }
 
+function buildEnvironmentSummary(slots, laneName) {
+  return {
+    lane: laneName,
+    env: slots.env,
+    mood: slots.mood,
+    light: slots.light,
+    weather: slots.weather,
+    style: slots.style,
+    ratio: slots.ratio,
+    viewpoint: slots.viewpoint,
+    timeOfDay: slots.timeOfDay,
+    season: slots.season,
+    foreground: slots.foreground,
+    palette: slots.palette,
+    composition: slots.composition,
+    texture: slots.texture,
+    dof: slots.dof,
+    soundRef: slots.soundRef,
+    export_use: RATIO_INFO[slots.ratio]?.use,
+  };
+}
+
+function buildEnvironmentRegularPrompt(slots, laneName) {
+  const themeLead = slots.collTheme
+    ? `Art direct this piece as part of the "${slots.collTheme}" collection. `
+    : "";
+  const characterLead = slots.novaSol
+    ? `Integrate Nova Sol naturally into the scene: ${NOVA_SOL_ANCHOR} `
+    : "Keep the image environment-led, with no foreground character. ";
+
+  return `${themeLead}Create a premium 2D anime environment illustration for the ${laneName} lane. ${characterLead}The core scene is ${slots.env}, seen from a ${slots.viewpoint} with ${slots.composition} on a ${slots.ratio} canvas. Stage it during ${slots.timeOfDay} in ${slots.season}, using ${slots.light} and ${slots.weather}. Anchor the foreground with ${slots.foreground}, layer in ${slots.details.join(", ")}, and emphasize ${slots.texture} surfaces with ${slots.dof}. Push a ${slots.palette} color script and let ${slots.soundRef} inform the atmosphere. Render it in ${slots.style} with strong depth, cohesive worldbuilding, and a decor-ready finish.`;
+}
+
+function buildEnvironmentChatGptPrompt(slots, laneName) {
+  const themeLead = slots.collTheme
+    ? `This image belongs to the "${slots.collTheme}" collection and should clearly reinforce that theme. `
+    : "";
+  const characterLead = slots.novaSol
+    ? `Include Nova Sol naturally within the world: ${NOVA_SOL_ANCHOR} `
+    : "Do not place a featured character in the foreground. ";
+
+  return `Create a polished anime environment illustration for Sunset Deck Studio. ${themeLead}${characterLead}Scene: ${slots.env}. Composition: ${slots.viewpoint}, ${slots.composition}, ${slots.ratio} framing. Time and season: ${slots.timeOfDay} in ${slots.season}. Lighting and atmosphere: ${slots.light}, ${slots.weather}. Foreground and story cues: ${slots.foreground}; ${slots.details.join(", ")}. Surface and focus treatment: ${slots.texture}; ${slots.dof}. Color direction: ${slots.palette}. Ambient reference: ${slots.soundRef}. Render in ${slots.style}. Keep the image premium, cohesive, atmospheric, and gallery-ready, with no text, watermark, logo, signature, drop shadows, or ground plane.`;
+}
+
+function buildEnvironmentNanoPrompt(slots) {
+  const themeLead = slots.collTheme
+    ? `Collection theme: ${slots.collTheme}. `
+    : "";
+  const characterLead = slots.novaSol
+    ? `Character: ${NOVA_SOL_ANCHOR}. `
+    : "No foreground character. ";
+
+  return `${themeLead}${characterLead}Scene: ${slots.env}. Format: ${slots.ratio}. Camera: ${slots.viewpoint}; ${slots.composition}. Time: ${slots.timeOfDay}; ${slots.season}. Lighting: ${slots.light}. Atmosphere: ${slots.weather}. Foreground: ${slots.foreground}. Story details: ${slots.details.join(", ")}. Surface: ${slots.texture}. Focus: ${slots.dof}. Palette: ${slots.palette}. Audio vibe: ${slots.soundRef}. Style: ${slots.style}. Output goal: premium decor-ready anime environment, strong depth, volumetric light, no text, no watermark, no drop shadows, no ground plane.`;
+}
+
 export function buildEtsy(lane, slots, novaSol) {
   const laneConfig = LANES[lane];
   const ratioLabel =
@@ -135,34 +190,41 @@ function assembleResult(laneName, slots, customNeg = []) {
     novaSol = false,
     collTheme = "",
   } = slots;
-  const characterDirection = novaSol
-    ? `Feature Nova Sol naturally within the environment: ${NOVA_SOL_ANCHOR}`
-    : "Environment-led scene only, with no foreground character.";
-  const themeDirection = collTheme
-    ? `Create this as part of the collection theme "${collTheme}". `
-    : "";
-
-  const positive = `${themeDirection}Create a premium decor-ready 2D anime environment illustration. ${characterDirection} Core scene: ${env}. Compose the frame for a ${ratio} canvas, using a ${viewpoint} and ${composition}. Seasonal moment: ${timeOfDay} in ${season}. Lighting and atmosphere: ${light}; ${weather}. Foreground anchor: ${foreground}. Story details: ${details.join(", ")}. Surface language: ${texture}. Focus treatment: ${dof}. Color script: ${palette}. Ambient cue: ${soundRef}. Render approach: ${style}. Prioritize atmospheric depth, volumetric light, cohesive worldbuilding, and a polished gallery-ready finish. No text, no watermarks, no drop shadows, no ground plane.`;
-
   const negTerms =
     customNeg.length > 0 ? customNeg : laneConfig.neg.split(", ");
   const negative = novaSol
     ? negTerms.filter((term) => term !== "characters in foreground").join(", ")
     : negTerms.join(", ");
-  const combined = `${positive}\n\nNegative prompt: ${negative}`;
+  const slotSummary = buildEnvironmentSummary(slots, laneName);
+  const regularPrompt = buildEnvironmentRegularPrompt(slots, laneName);
+  const chatgptPrompt = buildEnvironmentChatGptPrompt(slots, laneName);
+  const nanoPrompt = buildEnvironmentNanoPrompt(slots);
+  const positive = regularPrompt;
+  const combined = `${regularPrompt}\n\nNegative prompt: ${negative}`;
+  const chatgptCombined = `${chatgptPrompt}\n\nNegative prompt: ${negative}`;
+  const nanoCombined = `${nanoPrompt}\n\nNegative prompt: ${negative}`;
 
   const etsy = buildEtsy(laneName, slots, novaSol);
   const rb = buildRedbubble(laneName, slots, novaSol);
 
   return {
     ...slots,
+    regularPrompt,
+    chatgptPrompt,
+    nanoPrompt,
+    negativePrompt: negative,
     positive,
     negative,
     combined,
     nanoBanana: {
       platform: "Nano Banana",
       lane: laneName,
-      prompt: { positive, negative, combined },
+      prompt: {
+        regular: regularPrompt,
+        positive: nanoPrompt,
+        negative,
+        combined: nanoCombined,
+      },
       parameters: {
         aspect_ratio: ratio,
         resolution: RATIO_INFO[ratio].px.replace(/\s/g, ""),
@@ -172,16 +234,22 @@ function assembleResult(laneName, slots, customNeg = []) {
         no_watermark: true,
         no_characters: !novaSol,
       },
-      slot_summary: { ...slots, export_use: RATIO_INFO[ratio]?.use },
+      slot_summary: slotSummary,
     },
     chatGPT: {
       model: "gpt-4o",
+      prompt: {
+        regular: regularPrompt,
+        optimized: chatgptPrompt,
+        negative,
+        combined: chatgptCombined,
+      },
       messages: [
         {
           role: "system",
           content: `You are an AI image generation assistant for Sunset Deck Studio. Generate atmospheric 2D anime ${novaSol ? "character and " : ""}background art. Never include text, watermarks, drop shadows, or ground planes. Produce premium decor-ready environment illustrations.`,
         },
-        { role: "user", content: combined },
+        { role: "user", content: chatgptCombined },
       ],
       image_generation: {
         size: CHATGPT_SIZE[ratio] || "1024x1024",
@@ -189,7 +257,7 @@ function assembleResult(laneName, slots, customNeg = []) {
         style: "vivid",
         n: 1,
       },
-      slot_summary: { lane: laneName, ...slots, export_use: RATIO_INFO[ratio]?.use },
+      slot_summary: slotSummary,
     },
     etsy,
     rb,

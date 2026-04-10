@@ -43,7 +43,7 @@ export default function App() {
   const [rolling, setRolling] = useState(false);
   const [liveSlots, setLiveSlots] = useState(null);
   const [tab, setTab] = useState("combined");
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState("");
   const [copyAllDone, setCopyAllDone] = useState(false);
   const [cardKey, setCardKey] = useState(0);
   const [novaSol, setNovaSol] = useState(false);
@@ -117,7 +117,7 @@ export default function App() {
       }
 
       setRolling(true);
-      setCopied(false);
+      setCopiedKey("");
 
       const overrides = existingResult
         ? {
@@ -314,8 +314,8 @@ export default function App() {
   const tabs = useMemo(
     () => [
       ["combined", "PROMPT"],
-      ["nano", "NANO BANANA"],
-      ["chatgpt", "CHATGPT"],
+      ["nano", "NANO BANANA JSON"],
+      ["chatgpt", "CHATGPT JSON"],
       ["etsy", "ETSY"],
       ["redbubble", "REDBUBBLE"],
       ...(outputMode === "collection" ? [["collection", "COLLECTION"]] : []),
@@ -356,6 +356,11 @@ export default function App() {
       `sds-collection-${Date.now()}.txt`,
     );
   }, [collection]);
+
+  const flashCopied = useCallback((key) => {
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(""), 2000);
+  }, []);
 
   if (generatorMode === "portrait") {
     return (
@@ -530,10 +535,12 @@ export default function App() {
             result={result}
             collection={collection}
             copyAllDone={copyAllDone}
-            copied={copied}
+            copiedKey={copiedKey}
             onCopyAll={() => {
               const text = [
-                `=== COMBINED PROMPT ===\n${result.combined}`,
+                `=== REGULAR PROMPT ===\n${result.regularPrompt}`,
+                `=== CHATGPT PROMPT ===\n${result.chatgptPrompt}`,
+                `=== NANO BANANA PROMPT ===\n${result.nanoPrompt}`,
                 `=== NANO BANANA JSON ===\n${JSON.stringify(result.nanoBanana, null, 2)}`,
                 `=== CHATGPT JSON ===\n${JSON.stringify(result.chatGPT, null, 2)}`,
               ].join("\n\n");
@@ -542,33 +549,40 @@ export default function App() {
                 setTimeout(() => setCopyAllDone(false), 2500);
               });
             }}
-            onCopy={() => {
+            onCopyPrompt={() =>
+              writeToClipboard(result.regularPrompt, () => flashCopied("regular"))
+            }
+            onCopyChatgptPrompt={() =>
+              writeToClipboard(result.chatgptPrompt, () => flashCopied("chatgpt-prompt"))
+            }
+            onCopyNanoPrompt={() =>
+              writeToClipboard(result.nanoPrompt, () => flashCopied("nano-prompt"))
+            }
+            onCopyJson={() => {
               const text =
-                tab === "combined"
-                  ? result.combined
-                  : tab === "nano"
-                    ? JSON.stringify(result.nanoBanana, null, 2)
-                    : tab === "chatgpt"
-                      ? JSON.stringify(result.chatGPT, null, 2)
-                      : tab === "etsy"
-                        ? `TITLE:\n${result.etsy.title}\n\nTAGS:\n${result.etsy.tags.join(", ")}\n\nDESCRIPTION:\n${result.etsy.description}`
-                        : tab === "redbubble"
-                          ? `TITLE:\n${result.rb.title}\n\nTAGS:\n${result.rb.tags.join(", ")}\n\nDESCRIPTION:\n${result.rb.description}\n\nBEST PRODUCTS:\n${result.rb.bestProducts.join(", ")}`
-                          : collection
-                              .map((entry, index) => `--- PROMPT ${index + 1} (${entry.lane}) ---\n${entry.combined}`)
-                              .join("\n\n");
-              writeToClipboard(text, () => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              });
+                tab === "nano"
+                  ? JSON.stringify(result.nanoBanana, null, 2)
+                  : tab === "chatgpt"
+                    ? JSON.stringify(result.chatGPT, null, 2)
+                    : tab === "etsy"
+                      ? `TITLE:\n${result.etsy.title}\n\nTAGS:\n${result.etsy.tags.join(", ")}\n\nDESCRIPTION:\n${result.etsy.description}`
+                      : tab === "redbubble"
+                        ? `TITLE:\n${result.rb.title}\n\nTAGS:\n${result.rb.tags.join(", ")}\n\nDESCRIPTION:\n${result.rb.description}\n\nBEST PRODUCTS:\n${result.rb.bestProducts.join(", ")}`
+                        : collection
+                            .map((entry, index) => `--- PROMPT ${index + 1} (${entry.lane}) ---\n${entry.combined}`)
+                            .join("\n\n");
+              writeToClipboard(text, () => flashCopied("tab"));
             }}
             onDownloadJson={() => {
               downloadBlob(
-                JSON.stringify(
-                  { nanoBanana: result.nanoBanana, chatGPT: result.chatGPT },
-                  null,
-                  2,
-                ),
+                JSON.stringify({
+                  regularPrompt: result.regularPrompt,
+                  chatgptPrompt: result.chatgptPrompt,
+                  nanoPrompt: result.nanoPrompt,
+                  negativePrompt: result.negativePrompt,
+                  nanoBanana: result.nanoBanana,
+                  chatGPT: result.chatGPT,
+                }, null, 2),
                 "application/json",
                 `sds-${result.lane.replace(/\s/g, "-").toLowerCase()}.json`,
               );

@@ -69,6 +69,18 @@ test("orientation is derived from the selected aspect ratio", () => {
   assert.equal(getOrientationForAspectRatio("3:4 vertical (portrait)"), "portrait");
 });
 
+test("portrait outputs include differentiated regular, ChatGPT, and Nano Banana prompts", () => {
+  const prompt = generatePrompt(MOODS["Office Modern Window"]);
+
+  assert.ok(prompt.regularPrompt.includes(prompt.setting));
+  assert.ok(prompt.chatgptPrompt.includes("Create a polished anime portrait illustration."));
+  assert.ok(prompt.nanoPrompt.includes("Scene:"));
+  assert.notEqual(prompt.regularPrompt, prompt.chatgptPrompt);
+  assert.notEqual(prompt.chatgptPrompt, prompt.nanoPrompt);
+  assert.equal(prompt.chatGPT.prompt.negative, prompt.negativePrompt);
+  assert.equal(prompt.nanoBanana.prompt.negative, prompt.negativePrompt);
+});
+
 test("new beach volleyball preset outfits are selectable in the portrait data pool", () => {
   BEACH_OUTFITS.forEach((outfit) => {
     assert.ok(DATA.outfit.includes(outfit), `${outfit} should be selectable`);
