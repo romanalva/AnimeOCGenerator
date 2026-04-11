@@ -140,6 +140,24 @@ export const OutputCard = memo(function OutputCard({
             {result.regularPrompt}
           </div>
           <div style={{ fontSize: 9, letterSpacing: 3, color: accentColor, textTransform: "uppercase", marginBottom: 8 }}>
+            Character Lock
+          </div>
+          <div style={{ color: "#b7b7d4", marginBottom: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {result.characterLockPrompt}
+          </div>
+          <div style={{ fontSize: 9, letterSpacing: 3, color: accentColor, textTransform: "uppercase", marginBottom: 8 }}>
+            Scene Prompt
+          </div>
+          <div style={{ color: "#b7b7d4", marginBottom: 14, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {result.scenePrompt}
+          </div>
+          <div style={{ fontSize: 9, letterSpacing: 3, color: accentColor, textTransform: "uppercase", marginBottom: 8 }}>
+            Render Block
+          </div>
+          <div style={{ color: "#b7b7d4", marginBottom: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {result.renderBlockPrompt}
+          </div>
+          <div style={{ fontSize: 9, letterSpacing: 3, color: accentColor, textTransform: "uppercase", marginBottom: 8 }}>
             ChatGPT Prompt
           </div>
           <div style={{ color: "#b7b7d4", marginBottom: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
