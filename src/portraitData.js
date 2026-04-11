@@ -1,3 +1,11 @@
+import {
+  DEFAULT_STYLE_PRESET_NAME,
+  FINISH_INTENSITY_GUIDANCE,
+  LIGHTING_MODE_GUIDANCE,
+  resolveStylePreset,
+  STYLE_PRESETS,
+} from "./renderStylePresets.js";
+
 const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 const randMulti = (arr, min, max) => {
@@ -49,6 +57,16 @@ export const DATA = {
   anime_eye_render: ["large luminous bishoujo eyes with layered iris highlights", "sparkling shoujo eyes with star-like catchlights", "semi-realistic anime eyes with detailed limbal ring", "soft gradient anime irises with subtle reflections", "expressive manga-style eyes with glossy top highlight", "cinematic anime eyes with wet-line shine"],
   style_tags: ["semi-realistic anime", "painterly rendering", "high detail", "soft focus background", "cinematic composition", "warm color grading", "luminous skin", "ultra detailed hair", "8k quality", "studio lighting", "depth of field", "anime realism hybrid", "hyperdetailed", "soft bokeh", "film grain", "glamour photography style", "synthwave aesthetic", "retrowave neon glow", "bishoujo style", "chromatic aberration", "neon rim light", "vaporwave color grading", "80s retro anime influence", "shoujo manga sparkle", "clean lineart", "anime key visual", "expressive eye highlights", "otome game CG aesthetic", "cel-shaded finish", "illustration-grade detailing", "sports portrait editorial", "athlete media day polish", "business portrait polish", "executive portrait credibility", "corporate lifestyle portrait", "coastal athletic fashion", "beach volleyball premium look", "sun-kissed sports editorial", "resort sport-luxe styling", "stormy match drama"],
   negative_tags: ["3D render", "chibi", "deformed", "blurry face", "low quality", "bad anatomy", "bad hands", "extra fingers", "extra limbs", "asymmetrical eyes", "malformed face", "broken anatomy", "watermark", "text overlay"],
+  style_preset_name: ["soft_render_cinematic_anime"],
+  finish_intensity: ["light", "medium", "high"],
+  lighting_mode: [
+    "warm_indoor_vs_cool_night",
+    "golden_hour_soft_glow",
+    "studio_softbox_anime",
+    "neon_rim_lighting",
+  ],
+  render_profile: ["default_portrait", "soft_render_cinematic_anime"],
+  model_target: ["nano_banana", "chatgpt"],
 };
 
 const ASPECT_RATIO_TO_ORIENTATION = {
@@ -897,6 +915,228 @@ export function assembleFinalPrompt(sections) {
   return `Create a high-quality anime illustration of a ${sections.characterLock}. She wears ${sections.outfit}. She is ${sections.poseAndFraming}. Set in ${sections.environmentLight}. Style: ${sections.renderBlock}.\n\nNegative prompt: ${sections.negativePrompt}`;
 }
 
+function formatList(parts) {
+  const items = parts.filter(Boolean);
+  if (items.length <= 1) {
+    return items[0] || "";
+  }
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
+  }
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function withIndefiniteArticle(value = "") {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (/^(a|an)\s/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  const firstToken = trimmed.toLowerCase();
+  const article = /^[aeiou]/.test(firstToken) || /^8/.test(firstToken) ? "an" : "a";
+  return `${article} ${trimmed}`;
+}
+
+function inferLightingMode(prompt) {
+  const searchable = `${prompt.setting || ""} ${prompt.lighting || ""} ${prompt.time_of_day || ""} ${prompt.mood || ""}`.toLowerCase();
+
+  if (searchable.includes("neon") || searchable.includes("retro") || searchable.includes("midnight")) {
+    return "neon_rim_lighting";
+  }
+  if (searchable.includes("golden") || searchable.includes("sunset") || searchable.includes("dusk")) {
+    return "golden_hour_soft_glow";
+  }
+  if (
+    searchable.includes("office")
+    || searchable.includes("conference")
+    || searchable.includes("studio")
+    || searchable.includes("gym")
+  ) {
+    return "studio_softbox_anime";
+  }
+  return "warm_indoor_vs_cool_night";
+}
+
+function buildStylePresetLock(stylePreset, finishIntensity, lightingMode) {
+  if (!stylePreset) {
+    return "";
+  }
+
+  const finishGuidance =
+    FINISH_INTENSITY_GUIDANCE[finishIntensity]?.rendering
+    || FINISH_INTENSITY_GUIDANCE.medium.rendering;
+  const lightingGuidance =
+    LIGHTING_MODE_GUIDANCE[lightingMode] || LIGHTING_MODE_GUIDANCE.warm_indoor_vs_cool_night;
+
+  return `${stylePreset.soft_render_lock}. ${finishGuidance}. ${lightingGuidance}.`;
+}
+
+function stripAvoidPrefix(value = "") {
+  return value.replace(/^avoid\s+/i, "").trim();
+}
+
+function buildAvoidGuidanceSentence(negativeStyleGuidance = []) {
+  const cleaned = negativeStyleGuidance
+    .map(stripAvoidPrefix)
+    .filter(Boolean);
+  if (!cleaned.length) {
+    return "";
+  }
+  return `Avoid ${formatList(cleaned)}.`;
+}
+
+function buildReferenceInstruction(prompt, stylePreset, modelTarget) {
+  if (!prompt.reference_mode?.enabled) {
+    return "";
+  }
+
+  const rawBaseInstruction =
+    prompt.reference_mode.instruction
+    || stylePreset?.reference_match_instruction
+    || "";
+  const baseInstruction = rawBaseInstruction
+    .replace(/\s*while preserving the target character identity\s*/i, " ")
+    .replace(/\s*preserving the target character identity\s*/i, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[,\s]+$/, "");
+
+  if (!baseInstruction) {
+    return "";
+  }
+
+  const preservedIdentity = prompt.character_name
+    ? `preserving the ${prompt.character_name} character identity`
+    : "preserving the target character identity";
+  const explicitConstraints = formatList([
+    prompt.outfit ? `the ${prompt.outfit} wardrobe` : "",
+    prompt.pose ? `the ${prompt.pose} pose` : "",
+    prompt.setting ? `the ${prompt.setting} scene` : "",
+  ]);
+  const preserveClause = explicitConstraints
+    ? `while ${preservedIdentity}, ${explicitConstraints}, and any explicit scene constraints remain unchanged`
+    : `while ${preservedIdentity} remains unchanged`;
+
+  if (modelTarget === "nano_banana") {
+    return `${baseInstruction.charAt(0).toUpperCase() + baseInstruction.slice(1)} ${preserveClause}.`;
+  }
+
+  return `Reference image direction: ${baseInstruction}, ${preserveClause}.`;
+}
+
+function buildRefinementInstruction(prompt, stylePreset, modelTarget) {
+  if (!prompt.refinement_instruction) {
+    return "";
+  }
+
+  const baseInstruction =
+    prompt.refinement_instruction === "auto"
+      ? stylePreset?.refinement_pass || ""
+      : prompt.refinement_instruction;
+  if (!baseInstruction) {
+    return "";
+  }
+
+  if (modelTarget === "nano_banana") {
+    return `${baseInstruction.charAt(0).toUpperCase() + baseInstruction.slice(1)}.`;
+  }
+
+  return `Refinement pass: ${baseInstruction}.`;
+}
+
+function buildSubjectIdentity(prompt) {
+  const subjectCore =
+    prompt.subject
+    || `a ${prompt.age_aesthetic} woman with ${withIndefiniteArticle(prompt.body_type)} build`;
+
+  return prompt.character_name
+    ? `${prompt.character_name}, ${subjectCore}`
+    : subjectCore;
+}
+
+function buildAccessoryDetail(prompt) {
+  if (!prompt.accessories || prompt.accessories === "no accessories") {
+    return "";
+  }
+
+  return prompt.accessories;
+}
+
+function buildSubjectPresentation(prompt) {
+  const subjectDescriptors = [];
+
+  if (!prompt.subject_provided || prompt.age_aesthetic_explicit) {
+    subjectDescriptors.push(`${prompt.age_aesthetic} energy`);
+  }
+  if (!prompt.subject_provided || prompt.body_type_explicit) {
+    subjectDescriptors.push(`${withIndefiniteArticle(prompt.body_type)} silhouette`);
+  }
+
+  if (!subjectDescriptors.length) {
+    return `${buildSubjectIdentity(prompt)}.`;
+  }
+
+  return `${buildSubjectIdentity(prompt)}, with ${formatList(subjectDescriptors)}.`;
+}
+
+function buildFaceDescription(prompt) {
+  return `Facial direction: ${prompt.expression}, ${prompt.makeup}, ${prompt.face_shape}, ${prompt.nose}, ${prompt.lips}, and ${prompt.eye_color} eyes with ${prompt.eye_style}.`;
+}
+
+function buildHairSkinDescription(prompt) {
+  return `Hair and complexion: ${prompt.hair_color} hair that is ${prompt.hair_length} and ${prompt.hair_style}, ${prompt.skin_tone} skin with ${prompt.blush}.`;
+}
+
+function buildWardrobeDescription(prompt) {
+  const accessory = buildAccessoryDetail(prompt);
+  return accessory
+    ? `Wardrobe and accessories: ${prompt.outfit}, finished with ${accessory}.`
+    : `Wardrobe: ${prompt.outfit}.`;
+}
+
+function buildCompositionDescription(prompt) {
+  return `Composition and framing: use a ${prompt.aspect_ratio} canvas in ${prompt.orientation} orientation, a ${prompt.shot_type}, ${prompt.composition}, and ${withIndefiniteArticle(prompt.camera_lens)} look.`;
+}
+
+function buildSceneDescription(prompt) {
+  return `Scene: place the subject in ${prompt.setting}.`;
+}
+
+function buildLightingMoodDescription(prompt) {
+  const lightingGuidance =
+    LIGHTING_MODE_GUIDANCE[prompt.lighting_mode]
+    || LIGHTING_MODE_GUIDANCE.warm_indoor_vs_cool_night;
+
+  return `Lighting and atmosphere: ${prompt.lighting} at ${prompt.time_of_day}, with ${prompt.weather_atmosphere}, a ${prompt.mood} mood, and a ${prompt.color_palette} color script. Let the lighting ${lightingGuidance}.`;
+}
+
+function buildStyleDirection(prompt, modelTarget) {
+  const stylePreset = prompt.style_preset;
+  const finishGuidance =
+    FINISH_INTENSITY_GUIDANCE[prompt.finish_intensity]?.[modelTarget]
+    || FINISH_INTENSITY_GUIDANCE.medium[modelTarget];
+
+  const renderPackage = `Use ${prompt.anime_render_style} with ${prompt.linework_style}, ${prompt.shading_style}, and ${prompt.anime_eye_render}.`;
+
+  if (!stylePreset) {
+    return `Style and finish: ${renderPackage} ${finishGuidance}`;
+  }
+
+  const presetDirection = `Build the finish around ${formatList(stylePreset.primary_style_keywords)}, with ${formatList(stylePreset.linework)}, ${formatList(stylePreset.rendering)}, and ${formatList(stylePreset.detail_keywords)}.`;
+
+  return `Style and finish: ${renderPackage} ${presetDirection} ${finishGuidance}`;
+}
+
+function buildCharacterConsistencyBlock(prompt) {
+  const accessory = buildAccessoryDetail(prompt);
+  const accessoryClause = accessory ? `, ${accessory}` : "";
+
+  return `Keep the character consistent as ${buildSubjectIdentity(prompt)}, with ${prompt.face_shape}, ${prompt.nose}, ${prompt.lips}, ${prompt.eye_color} eyes with ${prompt.eye_style}, ${prompt.hair_color} hair that is ${prompt.hair_length} and ${prompt.hair_style}, ${prompt.skin_tone} skin with ${prompt.blush}, ${prompt.outfit}${accessoryClause}, and the ${prompt.pose} pose in ${prompt.setting}.`;
+}
+
 function buildScenarioAwareTags(overrides, scenario, stylePackage) {
   if (overrides.style_tags) {
     return overrides.style_tags;
@@ -937,38 +1177,162 @@ export function getOrientationForAspectRatio(aspectRatio) {
 }
 
 function buildPortraitNegativePrompt(prompt) {
-  return buildNegativePrompt(prompt);
+  return uniqueList(
+    [
+      ...buildNegativePrompt(prompt)
+        .split(",")
+        .map((item) => item.trim()),
+      ...prompt.negative_tags,
+      ...prompt.negative_style_guidance.map(stripAvoidPrefix),
+    ],
+    16,
+  ).join(", ");
 }
 
-function buildPortraitRegularPrompt(prompt) {
-  const characterLock = buildCharacterLock(prompt);
-  const outfit = buildOutfitSection(prompt);
-  const scene = buildSceneBlock(prompt);
-  const renderBlock = buildRenderBlock(prompt);
-  const compressedSections = compressPromptSections({
-    characterLock,
-    outfit,
-    poseAndFraming: scene.poseAndFraming,
-    environmentLight: scene.environmentLight,
-    renderBlock,
-  });
+function normalizeReferenceMode(referenceMode) {
+  return {
+    enabled: Boolean(referenceMode?.enabled),
+    instruction: referenceMode?.instruction || "",
+  };
+}
 
-  return assembleFinalPrompt(compressedSections);
+function normalizePortraitPrompt(prompt) {
+  const aspectRatio = prompt.aspect_ratio || "3:4 vertical (portrait)";
+  const stylePresetName =
+    prompt.style_preset_name && STYLE_PRESETS[prompt.style_preset_name]
+      ? prompt.style_preset_name
+      : DEFAULT_STYLE_PRESET_NAME;
+  const stylePreset = resolveStylePreset(stylePresetName);
+  const finishIntensity = DATA.finish_intensity.includes(prompt.finish_intensity)
+      ? prompt.finish_intensity
+      : "medium";
+  const lightingMode = DATA.lighting_mode.includes(prompt.lighting_mode)
+    ? prompt.lighting_mode
+    : inferLightingMode(prompt);
+  const negativeStyleGuidance = uniqueList(
+    prompt.negative_style_guidance?.length
+      ? prompt.negative_style_guidance
+      : stylePreset?.avoid_guidance || [],
+    8,
+  );
+  const refinementInstruction =
+    prompt.refinement_instruction === true
+      ? "auto"
+      : prompt.refinement_instruction || "";
+
+  return {
+    ...prompt,
+    aspect_ratio: aspectRatio,
+    orientation: resolveOrientation(aspectRatio),
+    style_preset_name: stylePresetName,
+    style_preset_label: humanizeId(stylePresetName),
+    style_preset: stylePreset,
+    render_profile:
+      prompt.render_profile
+      || (stylePreset ? stylePresetName : "default_portrait"),
+    model_target:
+      prompt.model_target === "nano_banana" ? "nano_banana" : "chatgpt",
+    finish_intensity: finishIntensity,
+    lighting_mode: lightingMode,
+    reference_mode: normalizeReferenceMode(prompt.reference_mode),
+    refinement_instruction: refinementInstruction,
+    negative_style_guidance: negativeStyleGuidance,
+    soft_render_lock:
+      stylePreset?.soft_render_lock
+      || buildStylePresetLock(stylePreset, finishIntensity, lightingMode),
+    avoid_lock:
+      buildAvoidGuidanceSentence(negativeStyleGuidance)
+      || stylePreset?.avoid_lock
+      || "",
+  };
+}
+
+export const NANO_BANANA_PROMPT_TEMPLATE = [
+  "subject",
+  "pose/composition",
+  "scene",
+  "lighting",
+  "style rendering block",
+  "character consistency block",
+  "avoid guidance sentence",
+  "optional reference-image instruction",
+  "optional refinement instruction",
+].join(" -> ");
+
+export const CHATGPT_PROMPT_TEMPLATE = [
+  "title/purpose line",
+  "subject description",
+  "composition/framing",
+  "environment/scene",
+  "lighting and mood",
+  "style block",
+  "consistency lock",
+  "avoid guidance",
+  "optional reference-image instruction",
+  "optional refinement instruction",
+].join(" -> ");
+
+function buildPortraitRegularPrompt(prompt) {
+  return [
+    "Create a premium anime portrait illustration.",
+    buildSubjectPresentation(prompt),
+    buildFaceDescription(prompt),
+    buildHairSkinDescription(prompt),
+    buildWardrobeDescription(prompt),
+    `Pose: ${prompt.pose}.`,
+    buildCompositionDescription(prompt),
+    buildSceneDescription(prompt),
+    buildLightingMoodDescription(prompt),
+    buildStyleDirection(prompt, "chatgpt"),
+    `Style tags: ${prompt.style_tags.join(", ")}.`,
+  ].join(" ");
 }
 
 function buildPortraitChatGptPrompt(prompt) {
-  return buildPortraitRegularPrompt(prompt);
+  const sections = [
+    "Create a polished anime portrait illustration.",
+    buildSubjectPresentation(prompt),
+    buildFaceDescription(prompt),
+    buildHairSkinDescription(prompt),
+    buildWardrobeDescription(prompt),
+    `Pose: ${prompt.pose}.`,
+    buildCompositionDescription(prompt),
+    buildSceneDescription(prompt),
+    buildLightingMoodDescription(prompt),
+    buildStyleDirection(prompt, "chatgpt"),
+    `Consistency lock: ${buildCharacterConsistencyBlock(prompt)}`,
+    prompt.avoid_lock,
+    buildReferenceInstruction(prompt, prompt.style_preset, "chatgpt"),
+    buildRefinementInstruction(prompt, prompt.style_preset, "chatgpt"),
+    `Use style tags only as subtle finish cues: ${prompt.style_tags.join(", ")}.`,
+  ];
+
+  return sections.filter(Boolean).join(" ");
 }
 
 function buildPortraitNanoPrompt(prompt) {
-  const scene = buildSceneBlock(prompt);
-  return `Character Lock: ${buildCharacterLock(prompt)}\nScene: ${scene.poseAndFraming}; ${scene.environmentLight}\nRender: ${buildRenderBlock(prompt)}`;
+  const accessory = buildAccessoryDetail(prompt);
+  const sections = [
+    `Subject: ${buildSubjectIdentity(prompt)}, with ${prompt.face_shape}, ${prompt.nose}, ${prompt.lips}, ${prompt.eye_color} eyes with ${prompt.eye_style}, ${prompt.hair_color} hair that is ${prompt.hair_length} and ${prompt.hair_style}, and ${prompt.skin_tone} skin with ${prompt.blush}.`,
+    `Pose and composition: ${prompt.pose}, framed as a ${prompt.shot_type} on a ${prompt.aspect_ratio} canvas with ${prompt.orientation} orientation, ${prompt.composition}, and ${withIndefiniteArticle(prompt.camera_lens)} look.${accessory ? ` Style the look with ${prompt.outfit} and ${accessory}.` : ` Style the look with ${prompt.outfit}.`}`,
+    `Scene: place the subject in ${prompt.setting}.`,
+    `Lighting and mood: ${prompt.lighting} at ${prompt.time_of_day}, with ${prompt.weather_atmosphere}, a ${prompt.mood} mood, and a ${prompt.color_palette} palette. Let the lighting ${LIGHTING_MODE_GUIDANCE[prompt.lighting_mode] || LIGHTING_MODE_GUIDANCE.warm_indoor_vs_cool_night}.`,
+    `Style rendering: render it in ${prompt.anime_render_style} with ${prompt.linework_style}, ${prompt.shading_style}, and ${prompt.anime_eye_render}. Keep the finish anchored in ${formatList(prompt.style_preset.primary_style_keywords)}, with ${formatList(prompt.style_preset.linework)}, ${formatList(prompt.style_preset.rendering)}, and ${formatList(prompt.style_preset.detail_keywords)}. ${FINISH_INTENSITY_GUIDANCE[prompt.finish_intensity]?.nano || FINISH_INTENSITY_GUIDANCE.medium.nano}`,
+    buildCharacterConsistencyBlock(prompt),
+    prompt.avoid_lock,
+    buildReferenceInstruction(prompt, prompt.style_preset, "nano_banana"),
+    buildRefinementInstruction(prompt, prompt.style_preset, "nano_banana"),
+  ];
+
+  return sections.filter(Boolean).join(" ");
 }
 
 function buildPortraitSummary(prompt) {
   return {
     scenario: prompt.scenario_id,
     style_package: prompt.style_package_id,
+    style_preset_name: prompt.style_preset_name,
+    render_profile: prompt.render_profile,
     aspect_ratio: prompt.aspect_ratio,
     orientation: prompt.orientation,
     shot_type: prompt.shot_type,
@@ -976,29 +1340,32 @@ function buildPortraitSummary(prompt) {
     camera_lens: prompt.camera_lens,
     setting: prompt.setting,
     lighting: prompt.lighting,
+    lighting_mode: prompt.lighting_mode,
     mood: prompt.mood,
     outfit: prompt.outfit,
     pose: prompt.pose,
+    finish_intensity: prompt.finish_intensity,
     style_tags: prompt.style_tags,
+    reference_mode: prompt.reference_mode.enabled,
   };
 }
 
 function decoratePortraitPrompt(prompt) {
-  const platformConfig = resolvePortraitPlatformConfig(prompt.aspect_ratio);
-  const characterLock = buildCharacterLock(prompt);
-  const outfitSection = buildOutfitSection(prompt);
-  const sceneBlock = buildSceneBlock(prompt);
-  const renderBlock = buildRenderBlock(prompt);
-  const regularPrompt = buildPortraitRegularPrompt(prompt);
-  const chatgptPrompt = buildPortraitChatGptPrompt(prompt);
-  const nanoPrompt = buildPortraitNanoPrompt(prompt);
-  const negativePrompt = buildPortraitNegativePrompt(prompt);
-  const summary = buildPortraitSummary(prompt);
+  const normalizedPrompt = normalizePortraitPrompt(prompt);
+  const platformConfig = resolvePortraitPlatformConfig(normalizedPrompt.aspect_ratio);
+  const characterLock = buildCharacterLock(normalizedPrompt);
+  const sceneBlock = buildSceneBlock(normalizedPrompt);
+  const renderBlock = buildRenderBlock(normalizedPrompt);
+  const regularPrompt = buildPortraitRegularPrompt(normalizedPrompt);
+  const chatgptPrompt = buildPortraitChatGptPrompt(normalizedPrompt);
+  const nanoPrompt = buildPortraitNanoPrompt(normalizedPrompt);
+  const negativePrompt = buildPortraitNegativePrompt(normalizedPrompt);
+  const summary = buildPortraitSummary(normalizedPrompt);
   const chatgptCombined = `${chatgptPrompt}\n\nNegative prompt: ${negativePrompt}`;
   const nanoCombined = `${nanoPrompt}\n\nNegative prompt: ${negativePrompt}`;
 
   return {
-    ...prompt,
+    ...normalizedPrompt,
     regularPrompt,
     chatgptPrompt,
     nanoPrompt,
@@ -1015,6 +1382,19 @@ function decoratePortraitPrompt(prompt) {
         optimized: chatgptPrompt,
         negative: negativePrompt,
         combined: chatgptCombined,
+        template: CHATGPT_PROMPT_TEMPLATE,
+        style_lock: normalizedPrompt.soft_render_lock,
+        avoid_lock: normalizedPrompt.avoid_lock,
+        reference_instruction: buildReferenceInstruction(
+          normalizedPrompt,
+          normalizedPrompt.style_preset,
+          "chatgpt",
+        ),
+        refinement_instruction: buildRefinementInstruction(
+          normalizedPrompt,
+          normalizedPrompt.style_preset,
+          "chatgpt",
+        ),
       },
       messages: [
         {
@@ -1027,7 +1407,10 @@ function decoratePortraitPrompt(prompt) {
       image_generation: {
         size: platformConfig.chatgptSize,
         quality: "hd",
-        style: prompt.style_package_id === "synthwave_anime_portrait" ? "vivid" : "natural",
+        style:
+          normalizedPrompt.style_package_id === "synthwave_anime_portrait"
+            ? "vivid"
+            : "natural",
         n: 1,
       },
       slot_summary: summary,
@@ -1039,6 +1422,19 @@ function decoratePortraitPrompt(prompt) {
         positive: nanoPrompt,
         negative: negativePrompt,
         combined: nanoCombined,
+        template: NANO_BANANA_PROMPT_TEMPLATE,
+        style_lock: normalizedPrompt.soft_render_lock,
+        avoid_lock: normalizedPrompt.avoid_lock,
+        reference_instruction: buildReferenceInstruction(
+          normalizedPrompt,
+          normalizedPrompt.style_preset,
+          "nano_banana",
+        ),
+        refinement_instruction: buildRefinementInstruction(
+          normalizedPrompt,
+          normalizedPrompt.style_preset,
+          "nano_banana",
+        ),
       },
       parameters: {
         aspect_ratio: platformConfig.nanoAspectRatio,
@@ -1112,6 +1508,9 @@ export const FIELD_LABELS = {
   setting: "Setting",
   lighting: "Lighting",
   mood: "Mood",
+  style_preset_name: "Style Preset",
+  finish_intensity: "Finish Intensity",
+  lighting_mode: "Lighting Mode",
   style_tags: "Style Tags",
   negative_tags: "Negative Tags",
 };
@@ -1120,6 +1519,7 @@ export const FIELD_GROUPS = [
   { label: "Composition & Camera", fields: ["aspect_ratio", "orientation", "shot_type", "composition", "camera_lens"] },
   { label: "Color & Atmosphere", fields: ["color_palette", "time_of_day", "weather_atmosphere", "lighting", "mood"] },
   { label: "Anime Rendering", fields: ["anime_render_style", "linework_style", "shading_style", "anime_eye_render"] },
+  { label: "Render System", fields: ["style_preset_name", "finish_intensity", "lighting_mode"] },
   { label: "Character", fields: ["body_type", "age_aesthetic", "expression", "makeup", "skin_tone", "blush"] },
   { label: "Hair", fields: ["hair_color", "hair_length", "hair_style"] },
   { label: "Face", fields: ["eye_color", "eye_style", "face_shape", "nose", "lips"] },
@@ -1136,6 +1536,41 @@ export const generatePrompt = (overrides = {}) => {
   const aspectRatio =
     overrides.aspect_ratio ??
     pickFrom(scenario.aspect_ratios, DATA.aspect_ratio);
+  const shotType =
+    overrides.shot_type ?? pickFrom(scenario.shot_type, DATA.shot_type);
+  const composition =
+    overrides.composition ?? pickFrom(scenario.composition, DATA.composition);
+  const cameraLens =
+    overrides.camera_lens ?? pickFrom(scenario.camera_lens, DATA.camera_lens);
+  const colorPalette =
+    overrides.color_palette ?? pickFrom(scenario.color_palette, DATA.color_palette);
+  const timeOfDay =
+    overrides.time_of_day ?? pickFrom(scenario.time_of_day, DATA.time_of_day);
+  const weatherAtmosphere =
+    overrides.weather_atmosphere ??
+    pickFrom(scenario.weather_atmosphere, DATA.weather_atmosphere);
+  const expression =
+    overrides.expression ?? pickFrom(scenario.expression, DATA.expression);
+  const makeup =
+    overrides.makeup ?? pickFrom(scenario.makeup, DATA.makeup);
+  const accessories =
+    overrides.accessories ?? pickFrom(scenario.accessories, DATA.accessories);
+  const outfit =
+    overrides.outfit ?? pickFrom(scenario.outfit, DATA.outfit);
+  const pose =
+    overrides.pose ?? pickFrom(scenario.pose, DATA.pose);
+  const setting =
+    overrides.setting ?? pickFrom(scenario.settings, DATA.setting);
+  const lighting =
+    overrides.lighting ?? pickFrom(scenario.lighting, DATA.lighting);
+  const mood =
+    overrides.mood ?? pickFrom(scenario.moods, DATA.mood);
+  const inferredLightingMode = inferLightingMode({
+    setting,
+    lighting,
+    time_of_day: timeOfDay,
+    mood,
+  });
 
   return decoratePortraitPrompt({
     scenario_id: scenarioId,
@@ -1144,22 +1579,31 @@ export const generatePrompt = (overrides = {}) => {
     style_package_label: humanizeId(stylePackageId),
     aspect_ratio: aspectRatio,
     orientation: resolveOrientation(aspectRatio),
-    shot_type: overrides.shot_type ?? pickFrom(scenario.shot_type, DATA.shot_type),
-    composition: overrides.composition ?? pickFrom(scenario.composition, DATA.composition),
-    camera_lens: overrides.camera_lens ?? pickFrom(scenario.camera_lens, DATA.camera_lens),
-    color_palette: overrides.color_palette ?? pickFrom(scenario.color_palette, DATA.color_palette),
-    time_of_day: overrides.time_of_day ?? pickFrom(scenario.time_of_day, DATA.time_of_day),
-    weather_atmosphere:
-      overrides.weather_atmosphere ??
-      pickFrom(scenario.weather_atmosphere, DATA.weather_atmosphere),
+    character_name: overrides.character_name || "",
+    subject: overrides.subject || "",
+    subject_provided: Object.prototype.hasOwnProperty.call(overrides, "subject"),
+    age_aesthetic_explicit: Object.prototype.hasOwnProperty.call(
+      overrides,
+      "age_aesthetic",
+    ),
+    body_type_explicit: Object.prototype.hasOwnProperty.call(
+      overrides,
+      "body_type",
+    ),
+    shot_type: shotType,
+    composition,
+    camera_lens: cameraLens,
+    color_palette: colorPalette,
+    time_of_day: timeOfDay,
+    weather_atmosphere: weatherAtmosphere,
     anime_render_style: overrides.anime_render_style ?? stylePackage.anime_render_style,
     linework_style: overrides.linework_style ?? stylePackage.linework_style,
     shading_style: overrides.shading_style ?? stylePackage.shading_style,
     anime_eye_render: overrides.anime_eye_render ?? stylePackage.anime_eye_render,
     body_type: overrides.body_type ?? rand(DATA.body_type),
     age_aesthetic: overrides.age_aesthetic ?? rand(DATA.age_aesthetic),
-    expression: overrides.expression ?? pickFrom(scenario.expression, DATA.expression),
-    makeup: overrides.makeup ?? pickFrom(scenario.makeup, DATA.makeup),
+    expression,
+    makeup,
     hair_color: overrides.hair_color ?? rand(DATA.hair_color),
     hair_length: overrides.hair_length ?? rand(DATA.hair_length),
     hair_style: overrides.hair_style ?? pickFrom(scenario.hair_style, DATA.hair_style),
@@ -1170,12 +1614,29 @@ export const generatePrompt = (overrides = {}) => {
     lips: overrides.lips ?? rand(DATA.lips),
     skin_tone: overrides.skin_tone ?? rand(DATA.skin_tone),
     blush: overrides.blush ?? rand(DATA.blush),
-    accessories: overrides.accessories ?? pickFrom(scenario.accessories, DATA.accessories),
-    outfit: overrides.outfit ?? pickFrom(scenario.outfit, DATA.outfit),
-    pose: overrides.pose ?? pickFrom(scenario.pose, DATA.pose),
-    setting: overrides.setting ?? pickFrom(scenario.settings, DATA.setting),
-    lighting: overrides.lighting ?? pickFrom(scenario.lighting, DATA.lighting),
-    mood: overrides.mood ?? pickFrom(scenario.moods, DATA.mood),
+    accessories,
+    outfit,
+    pose,
+    setting,
+    lighting,
+    mood,
+    style_preset_name: overrides.style_preset_name ?? DEFAULT_STYLE_PRESET_NAME,
+    render_profile: overrides.render_profile ?? DEFAULT_STYLE_PRESET_NAME,
+    model_target:
+      overrides.model_target === "nano_banana" ? "nano_banana" : "chatgpt",
+    finish_intensity: overrides.finish_intensity ?? "medium",
+    lighting_mode: overrides.lighting_mode ?? inferredLightingMode,
+    reference_mode: normalizeReferenceMode(overrides.reference_mode),
+    refinement_instruction:
+      overrides.refinement_instruction === true
+        ? "auto"
+        : overrides.refinement_instruction || "",
+    negative_style_guidance:
+      overrides.negative_style_guidance
+      || STYLE_PRESETS[
+        overrides.style_preset_name || DEFAULT_STYLE_PRESET_NAME
+      ]?.avoid_guidance
+      || [],
     style_tags: buildScenarioAwareTags(overrides, scenario, stylePackage),
     negative_tags: buildScenarioAwareNegatives(overrides, scenario, stylePackage),
   });

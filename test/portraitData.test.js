@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  CHATGPT_PROMPT_TEMPLATE,
   DATA,
   buildCharacterLock,
   buildNegativePrompt,
@@ -10,6 +11,7 @@ import {
   generatePrompt,
   getOrientationForAspectRatio,
   MOODS,
+  NANO_BANANA_PROMPT_TEMPLATE,
 } from "../src/portraitData.js";
 
 const NEW_PRESETS = [
@@ -77,13 +79,44 @@ test("orientation is derived from the selected aspect ratio", () => {
 test("portrait outputs include full prompt plus modular prompt blocks", () => {
   const prompt = generatePrompt(MOODS["Office Modern Window"]);
 
-  assert.ok(prompt.fullPrompt.includes("Create a high-quality anime illustration"));
+  assert.ok(prompt.fullPrompt.includes("Create a premium anime portrait illustration."));
   assert.ok(prompt.characterLockPrompt.includes("clearly adult woman"));
   assert.ok(prompt.scenePrompt.length > 0);
   assert.ok(prompt.renderBlockPrompt.length > 0);
-  assert.ok(prompt.nanoPrompt.includes("Character Lock:"));
+  assert.ok(prompt.nanoPrompt.includes("Subject:"));
   assert.equal(prompt.chatGPT.prompt.negative, prompt.negativePrompt);
   assert.equal(prompt.nanoBanana.prompt.negative, prompt.negativePrompt);
+});
+
+test("soft render preset schema fields and templates are present", () => {
+  const prompt = generatePrompt(MOODS["Office Desk Workspace"]);
+
+  assert.equal(prompt.style_preset_name, "soft_render_cinematic_anime");
+  assert.equal(prompt.render_profile, "soft_render_cinematic_anime");
+  assert.equal(prompt.finish_intensity, "medium");
+  assert.ok(DATA.style_preset_name.includes(prompt.style_preset_name));
+  assert.ok(DATA.finish_intensity.includes(prompt.finish_intensity));
+  assert.ok(DATA.lighting_mode.includes(prompt.lighting_mode));
+  assert.ok(prompt.soft_render_lock.includes("soft-render digital illustration"));
+  assert.equal(prompt.avoid_lock, "Avoid flat cel shading, heavy black outlines, harsh contrast, and stiff hair rendering.");
+  assert.equal(prompt.chatGPT.prompt.template, CHATGPT_PROMPT_TEMPLATE);
+  assert.equal(prompt.nanoBanana.prompt.template, NANO_BANANA_PROMPT_TEMPLATE);
+});
+
+test("reference mode and refinement instructions flow into both model prompts", () => {
+  const prompt = generatePrompt({
+    ...MOODS["Office Desk Workspace"],
+    character_name: "Velvet Echo",
+    subject: "a youthful woman with soft features and an athletic toned build",
+    reference_mode: { enabled: true },
+    refinement_instruction: true,
+  });
+
+  assert.equal(prompt.reference_mode.enabled, true);
+  assert.ok(prompt.chatgptPrompt.includes("Reference image direction:"));
+  assert.ok(prompt.nanoPrompt.includes("Match the rendering finish"));
+  assert.ok(prompt.chatgptPrompt.includes("Refinement pass:"));
+  assert.ok(prompt.nanoPrompt.includes("Increase painterly shading depth"));
 });
 
 test("new beach volleyball preset outfits are selectable in the portrait data pool", () => {
@@ -133,10 +166,10 @@ const BLOATED_OVERRIDE = {
 test("bloated portrait prompt gets compressed without losing core identity", () => {
   const prompt = generatePrompt(BLOATED_OVERRIDE);
 
-  assert.ok(prompt.regularPrompt.includes("clearly adult woman"));
+  assert.ok(prompt.regularPrompt.includes("Create a premium anime portrait illustration."));
   assert.ok(prompt.regularPrompt.includes("light tan"));
   assert.ok(prompt.regularPrompt.includes("neon-trimmed bodysuit"));
-  assert.ok(prompt.regularPrompt.includes("Negative prompt:"));
+  assert.ok(prompt.chatgptPrompt.includes("Consistency lock:"));
   assert.ok(prompt.characterLockPrompt.split(/\s+/).length <= 25);
 });
 
@@ -159,8 +192,18 @@ test("conflicting lens terms are resolved to one", () => {
 
 test("negative prompt stays compact default list", () => {
   const prompt = generatePrompt(BLOATED_OVERRIDE);
-  assert.equal(prompt.negativePrompt, buildNegativePrompt());
-  assert.equal(prompt.negativePrompt, "low quality, blurry, bad anatomy, malformed hands, extra fingers, extra limbs, asymmetrical eyes, facial distortion, muddy colors, text, watermark, logo");
+  const baseNegative = buildNegativePrompt()
+    .split(",")
+    .map((item) => item.trim());
+  const promptNegative = prompt.negativePrompt
+    .split(",")
+    .map((item) => item.trim());
+
+  baseNegative.forEach((term) => {
+    assert.ok(promptNegative.includes(term));
+  });
+  assert.ok(promptNegative.length >= baseNegative.length);
+  assert.ok(promptNegative.length <= 16);
 });
 
 test("character lock output stays stable across scene changes", () => {
