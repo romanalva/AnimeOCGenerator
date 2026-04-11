@@ -9,8 +9,8 @@ import {
   DEFAULT_STYLE_PRESET_NAME,
   FINISH_INTENSITY_GUIDANCE,
   LIGHTING_MODE_GUIDANCE,
+  NO_STYLE_PRESET_NAME,
   resolveStylePreset,
-  STYLE_PRESETS,
 } from "./renderStylePresets.js";
 
 export function pick(arr) {
@@ -103,9 +103,12 @@ function resolveEnvironmentRenderConfig(slots) {
     slots.characterAnchor || (slots.novaSol ? NOVA_SOL_ANCHOR : "");
   const characterName =
     slots.characterName || (slots.novaSol ? "Nova Sol" : "");
+  const requestedStylePreset = slots.style_preset_name;
   const stylePresetName =
-    slots.style_preset_name
-    || (characterAnchor ? DEFAULT_STYLE_PRESET_NAME : "");
+    requestedStylePreset === NO_STYLE_PRESET_NAME
+      ? NO_STYLE_PRESET_NAME
+      : requestedStylePreset
+        || (characterAnchor ? DEFAULT_STYLE_PRESET_NAME : "");
   const stylePreset = stylePresetName ? resolveStylePreset(stylePresetName) : null;
   const finishIntensity = FINISH_INTENSITY_GUIDANCE[slots.finish_intensity]
     ? slots.finish_intensity
@@ -129,9 +132,7 @@ function resolveEnvironmentRenderConfig(slots) {
     characterAnchor,
     characterName,
     style_preset_name: stylePresetName,
-    render_profile:
-      slots.render_profile
-      || (stylePreset ? stylePresetName : "default_environment"),
+    render_profile: stylePreset ? stylePresetName : "default_environment",
     model_target:
       slots.model_target === "nano_banana" ? "nano_banana" : "chatgpt",
     stylePreset,

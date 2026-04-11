@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { downloadBlob, writeToClipboard } from "./browserUtils";
 import { RatioPreview, SlotRow } from "./components";
 import {
+  DEFAULT_STYLE_PRESET_NAME,
+  RENDER_PRESET_OPTIONS,
+} from "./renderStylePresets";
+import {
   buildPromptOutputs,
   DATA,
   FIELD_GROUPS,
@@ -27,6 +31,7 @@ export function PortraitGenerator({ onSwitchMode }) {
   const firstRun = useRef(true);
 
   const presetNames = useMemo(() => Object.keys(MOODS), []);
+  const activeRenderPresetName = prompt?.style_preset_name || DEFAULT_STYLE_PRESET_NAME;
 
   const flashCopied = useCallback((key) => {
     setCopiedKey(key);
@@ -81,6 +86,20 @@ export function PortraitGenerator({ onSwitchMode }) {
         : [],
     [prompt],
   );
+
+  const applyRenderPreset = useCallback((presetId) => {
+    setPrompt((previous) => {
+      if (!previous) {
+        return previous;
+      }
+      return buildPromptOutputs({
+        ...previous,
+        style_preset_name: presetId,
+      });
+    });
+    setLocks((previous) => ({ ...previous, style_preset_name: true }));
+    setCardKey((previous) => previous + 1);
+  }, []);
 
   return (
     <div className="app-shell app-shell--portrait">
@@ -149,6 +168,42 @@ export function PortraitGenerator({ onSwitchMode }) {
               </button>
             );
           })}
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div
+            style={{
+              fontSize: 9,
+              letterSpacing: 4,
+              color: ACCENT,
+              textTransform: "uppercase",
+              marginBottom: 8,
+            }}
+          >
+            Render Preset
+          </div>
+          <div className="responsive-pill-row" style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+            {RENDER_PRESET_OPTIONS.map((preset) => {
+              const active = activeRenderPresetName === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  className="pill"
+                  onClick={() => applyRenderPreset(preset.id)}
+                  style={{
+                    background: active ? `${ACCENT}15` : "rgba(255,255,255,0.02)",
+                    borderColor: active ? `${ACCENT}66` : "rgba(255,255,255,0.12)",
+                    color: active ? ACCENT : "#8888aa",
+                  }}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 10, color: "#7070a8", lineHeight: 1.4 }}>
+            Visible render presets now control the portrait finish directly, without digging into the field list.
+          </div>
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 16, alignItems: "center" }}>

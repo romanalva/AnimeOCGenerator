@@ -30,6 +30,11 @@ import {
   VIEWPOINTS,
 } from "./data";
 import { buildResult, buildResultFromSlots, pick, pickN } from "./helpers";
+import {
+  DEFAULT_STYLE_PRESET_NAME,
+  NO_STYLE_PRESET_NAME,
+  RENDER_PRESET_OPTIONS,
+} from "./renderStylePresets";
 const PortraitGenerator = lazy(() =>
   import("./PortraitGenerator").then((module) => ({
     default: module.PortraitGenerator,
@@ -47,6 +52,7 @@ export default function App() {
   const [copyAllDone, setCopyAllDone] = useState(false);
   const [cardKey, setCardKey] = useState(0);
   const [novaSol, setNovaSol] = useState(false);
+  const [renderPresetName, setRenderPresetName] = useState("");
   const [outputMode, setOutputMode] = useState("single");
   const [collTheme, setCollTheme] = useState("");
   const [collection, setCollection] = useState([]);
@@ -81,6 +87,15 @@ export default function App() {
   const laneConfig = LANES[displayLane];
   const accentColor = laneConfig.color;
   const laneSupportPools = LANE_SUPPORT_POOLS[displayLane] || {};
+  const activeRenderPresetName = useMemo(() => {
+    if (result?.style_preset_name) {
+      return result.style_preset_name;
+    }
+    if (renderPresetName) {
+      return renderPresetName;
+    }
+    return novaSol ? DEFAULT_STYLE_PRESET_NAME : NO_STYLE_PRESET_NAME;
+  }, [novaSol, renderPresetName, result?.style_preset_name]);
 
   const buildSlotsResult = useCallback(
     (lane, inputLocks = {}, overrides = {}) =>
@@ -104,10 +119,11 @@ export default function App() {
           ...slotValues,
           novaSol,
           collTheme,
+          style_preset_name: renderPresetName || slotValues.style_preset_name || "",
         },
         activeNegTerms,
       ),
-    [activeNegTerms, collTheme, novaSol],
+    [activeNegTerms, collTheme, novaSol, renderPresetName],
   );
 
   const doRoll = useCallback(
@@ -135,12 +151,14 @@ export default function App() {
             palette: existingResult.palette,
             composition: existingResult.composition,
             texture: existingResult.texture,
-            dof: existingResult.dof,
-            soundRef: existingResult.soundRef,
-            novaSol,
-            collTheme,
-          }
-        : { novaSol, collTheme };
+          dof: existingResult.dof,
+          soundRef: existingResult.soundRef,
+          novaSol,
+          collTheme,
+          style_preset_name:
+            renderPresetName || existingResult.style_preset_name || "",
+        }
+        : { novaSol, collTheme, style_preset_name: renderPresetName || "" };
 
       let nextLocks = existingLocks;
       if (pinnedRatio) {
@@ -362,6 +380,24 @@ export default function App() {
     setTimeout(() => setCopiedKey(""), 2000);
   }, []);
 
+  const applyEnvironmentRenderPreset = useCallback(
+    (presetId) => {
+      setRenderPresetName(presetId);
+      if (!slots) {
+        return;
+      }
+
+      setResult(
+        rebuildFromCurrentSlots(displayLane, {
+          ...slots,
+          style_preset_name: presetId,
+        }),
+      );
+      setCardKey((previous) => previous + 1);
+    },
+    [displayLane, rebuildFromCurrentSlots, slots],
+  );
+
   if (generatorMode === "portrait") {
     return (
       <Suspense
@@ -403,6 +439,44 @@ export default function App() {
         </div>
 
         <HeaderPanel accentColor={accentColor} result={result} rolling={rolling} />
+
+        <div style={{ marginBottom: 12 }}>
+          <div
+            style={{
+              fontSize: 9,
+              letterSpacing: 4,
+              color: accentColor,
+              textTransform: "uppercase",
+              marginBottom: 8,
+            }}
+          >
+            Render Preset
+          </div>
+          <div className="responsive-pill-row" style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+            {RENDER_PRESET_OPTIONS.map((preset) => {
+              const active = activeRenderPresetName === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  className="pill"
+                  onClick={() => applyEnvironmentRenderPreset(preset.id)}
+                  style={{
+                    background: active ? `${accentColor}15` : "rgba(255,255,255,0.02)",
+                    borderColor: active ? `${accentColor}66` : "rgba(255,255,255,0.12)",
+                    color: active ? accentColor : "#8888aa",
+                  }}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 10, color: "#7070a8", lineHeight: 1.4 }}>
+            {novaSol
+              ? "This preset shapes character rendering inside the environment scene."
+              : "Render presets apply once a character is enabled, and are ready ahead of time."}
+          </div>
+        </div>
 
         <ControlsPanel
           activeLane={activeLane}
@@ -510,6 +584,7 @@ export default function App() {
             onLoad={(entry) => {
               setResult(entry);
               setActiveLane(entry.lane);
+              setRenderPresetName(entry.style_preset_name || "");
               setLocks({});
               setShowHistory(false);
               setCardKey((previous) => previous + 1);

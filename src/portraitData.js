@@ -2,6 +2,7 @@ import {
   DEFAULT_STYLE_PRESET_NAME,
   FINISH_INTENSITY_GUIDANCE,
   LIGHTING_MODE_GUIDANCE,
+  NO_STYLE_PRESET_NAME,
   resolveStylePreset,
   STYLE_PRESETS,
 } from "./renderStylePresets.js";
@@ -57,7 +58,7 @@ export const DATA = {
   anime_eye_render: ["large luminous bishoujo eyes with layered iris highlights", "sparkling shoujo eyes with star-like catchlights", "semi-realistic anime eyes with detailed limbal ring", "soft gradient anime irises with subtle reflections", "expressive manga-style eyes with glossy top highlight", "cinematic anime eyes with wet-line shine"],
   style_tags: ["semi-realistic anime", "painterly rendering", "high detail", "soft focus background", "cinematic composition", "warm color grading", "luminous skin", "ultra detailed hair", "8k quality", "studio lighting", "depth of field", "anime realism hybrid", "hyperdetailed", "soft bokeh", "film grain", "glamour photography style", "synthwave aesthetic", "retrowave neon glow", "bishoujo style", "chromatic aberration", "neon rim light", "vaporwave color grading", "80s retro anime influence", "shoujo manga sparkle", "clean lineart", "anime key visual", "expressive eye highlights", "otome game CG aesthetic", "cel-shaded finish", "illustration-grade detailing", "sports portrait editorial", "athlete media day polish", "business portrait polish", "executive portrait credibility", "corporate lifestyle portrait", "coastal athletic fashion", "beach volleyball premium look", "sun-kissed sports editorial", "resort sport-luxe styling", "stormy match drama"],
   negative_tags: ["3D render", "chibi", "deformed", "blurry face", "low quality", "bad anatomy", "bad hands", "extra fingers", "extra limbs", "asymmetrical eyes", "malformed face", "broken anatomy", "watermark", "text overlay"],
-  style_preset_name: ["soft_render_cinematic_anime"],
+  style_preset_name: [NO_STYLE_PRESET_NAME, "soft_render_cinematic_anime"],
   finish_intensity: ["light", "medium", "high"],
   lighting_mode: [
     "warm_indoor_vs_cool_night",
@@ -1198,10 +1199,13 @@ function normalizeReferenceMode(referenceMode) {
 
 function normalizePortraitPrompt(prompt) {
   const aspectRatio = prompt.aspect_ratio || "3:4 vertical (portrait)";
+  const requestedStylePreset = prompt.style_preset_name;
   const stylePresetName =
-    prompt.style_preset_name && STYLE_PRESETS[prompt.style_preset_name]
-      ? prompt.style_preset_name
-      : DEFAULT_STYLE_PRESET_NAME;
+    requestedStylePreset === NO_STYLE_PRESET_NAME
+      ? NO_STYLE_PRESET_NAME
+      : requestedStylePreset && STYLE_PRESETS[requestedStylePreset]
+        ? requestedStylePreset
+        : DEFAULT_STYLE_PRESET_NAME;
   const stylePreset = resolveStylePreset(stylePresetName);
   const finishIntensity = DATA.finish_intensity.includes(prompt.finish_intensity)
       ? prompt.finish_intensity
@@ -1227,9 +1231,7 @@ function normalizePortraitPrompt(prompt) {
     style_preset_name: stylePresetName,
     style_preset_label: humanizeId(stylePresetName),
     style_preset: stylePreset,
-    render_profile:
-      prompt.render_profile
-      || (stylePreset ? stylePresetName : "default_portrait"),
+    render_profile: stylePreset ? stylePresetName : "default_portrait",
     model_target:
       prompt.model_target === "nano_banana" ? "nano_banana" : "chatgpt",
     finish_intensity: finishIntensity,
@@ -1312,12 +1314,15 @@ function buildPortraitChatGptPrompt(prompt) {
 
 function buildPortraitNanoPrompt(prompt) {
   const accessory = buildAccessoryDetail(prompt);
+  const styleRenderingBlock = prompt.style_preset
+    ? `Style rendering: render it in ${prompt.anime_render_style} with ${prompt.linework_style}, ${prompt.shading_style}, and ${prompt.anime_eye_render}. Keep the finish anchored in ${formatList(prompt.style_preset.primary_style_keywords)}, with ${formatList(prompt.style_preset.linework)}, ${formatList(prompt.style_preset.rendering)}, and ${formatList(prompt.style_preset.detail_keywords)}. ${FINISH_INTENSITY_GUIDANCE[prompt.finish_intensity]?.nano || FINISH_INTENSITY_GUIDANCE.medium.nano}`
+    : `Style rendering: render it in ${prompt.anime_render_style} with ${prompt.linework_style}, ${prompt.shading_style}, and ${prompt.anime_eye_render}.`;
   const sections = [
     `Subject: ${buildSubjectIdentity(prompt)}, with ${prompt.face_shape}, ${prompt.nose}, ${prompt.lips}, ${prompt.eye_color} eyes with ${prompt.eye_style}, ${prompt.hair_color} hair that is ${prompt.hair_length} and ${prompt.hair_style}, and ${prompt.skin_tone} skin with ${prompt.blush}.`,
     `Pose and composition: ${prompt.pose}, framed as a ${prompt.shot_type} on a ${prompt.aspect_ratio} canvas with ${prompt.orientation} orientation, ${prompt.composition}, and ${withIndefiniteArticle(prompt.camera_lens)} look.${accessory ? ` Style the look with ${prompt.outfit} and ${accessory}.` : ` Style the look with ${prompt.outfit}.`}`,
     `Scene: place the subject in ${prompt.setting}.`,
     `Lighting and mood: ${prompt.lighting} at ${prompt.time_of_day}, with ${prompt.weather_atmosphere}, a ${prompt.mood} mood, and a ${prompt.color_palette} palette. Let the lighting ${LIGHTING_MODE_GUIDANCE[prompt.lighting_mode] || LIGHTING_MODE_GUIDANCE.warm_indoor_vs_cool_night}.`,
-    `Style rendering: render it in ${prompt.anime_render_style} with ${prompt.linework_style}, ${prompt.shading_style}, and ${prompt.anime_eye_render}. Keep the finish anchored in ${formatList(prompt.style_preset.primary_style_keywords)}, with ${formatList(prompt.style_preset.linework)}, ${formatList(prompt.style_preset.rendering)}, and ${formatList(prompt.style_preset.detail_keywords)}. ${FINISH_INTENSITY_GUIDANCE[prompt.finish_intensity]?.nano || FINISH_INTENSITY_GUIDANCE.medium.nano}`,
+    styleRenderingBlock,
     buildCharacterConsistencyBlock(prompt),
     prompt.avoid_lock,
     buildReferenceInstruction(prompt, prompt.style_preset, "nano_banana"),
@@ -1519,7 +1524,7 @@ export const FIELD_GROUPS = [
   { label: "Composition & Camera", fields: ["aspect_ratio", "orientation", "shot_type", "composition", "camera_lens"] },
   { label: "Color & Atmosphere", fields: ["color_palette", "time_of_day", "weather_atmosphere", "lighting", "mood"] },
   { label: "Anime Rendering", fields: ["anime_render_style", "linework_style", "shading_style", "anime_eye_render"] },
-  { label: "Render System", fields: ["style_preset_name", "finish_intensity", "lighting_mode"] },
+  { label: "Render System", fields: ["finish_intensity", "lighting_mode"] },
   { label: "Character", fields: ["body_type", "age_aesthetic", "expression", "makeup", "skin_tone", "blush"] },
   { label: "Hair", fields: ["hair_color", "hair_length", "hair_style"] },
   { label: "Face", fields: ["eye_color", "eye_style", "face_shape", "nose", "lips"] },
@@ -1621,7 +1626,13 @@ export const generatePrompt = (overrides = {}) => {
     lighting,
     mood,
     style_preset_name: overrides.style_preset_name ?? DEFAULT_STYLE_PRESET_NAME,
-    render_profile: overrides.render_profile ?? DEFAULT_STYLE_PRESET_NAME,
+    render_profile:
+      overrides.render_profile
+      ?? (
+        overrides.style_preset_name === NO_STYLE_PRESET_NAME
+          ? "default_portrait"
+          : DEFAULT_STYLE_PRESET_NAME
+      ),
     model_target:
       overrides.model_target === "nano_banana" ? "nano_banana" : "chatgpt",
     finish_intensity: overrides.finish_intensity ?? "medium",
@@ -1634,7 +1645,9 @@ export const generatePrompt = (overrides = {}) => {
     negative_style_guidance:
       overrides.negative_style_guidance
       || STYLE_PRESETS[
-        overrides.style_preset_name || DEFAULT_STYLE_PRESET_NAME
+        overrides.style_preset_name === NO_STYLE_PRESET_NAME
+          ? ""
+          : overrides.style_preset_name || DEFAULT_STYLE_PRESET_NAME
       ]?.avoid_guidance
       || [],
     style_tags: buildScenarioAwareTags(overrides, scenario, stylePackage),

@@ -1,4 +1,9 @@
 export const DEFAULT_STYLE_PRESET_NAME = "soft_render_cinematic_anime";
+export const NO_STYLE_PRESET_NAME = "default_render";
+export const RENDER_PRESET_OPTIONS = [
+  { id: NO_STYLE_PRESET_NAME, label: "Default Render" },
+  { id: DEFAULT_STYLE_PRESET_NAME, label: "Soft Render Cinematic Anime" },
+];
 
 export const SOFT_RENDER_LOCK =
   "modern high-detail anime style, soft-render digital illustration, clean thin refined line art, semi-realistic painterly shading, smooth skin gradients, soft highlights on skin, detailed irises with multiple highlights, layered voluminous hair with glossy sheen, volumetric lighting, soft rim lighting, cinematic atmosphere, warm practical light balanced with cool ambient exterior light";

@@ -103,6 +103,18 @@ test("soft render preset schema fields and templates are present", () => {
   assert.equal(prompt.nanoBanana.prompt.template, NANO_BANANA_PROMPT_TEMPLATE);
 });
 
+test("default render preset cleanly disables the soft-render module", () => {
+  const prompt = generatePrompt({
+    ...MOODS["Office Desk Workspace"],
+    style_preset_name: "default_render",
+  });
+
+  assert.equal(prompt.style_preset_name, "default_render");
+  assert.equal(prompt.render_profile, "default_portrait");
+  assert.equal(prompt.soft_render_lock, "");
+  assert.equal(prompt.avoid_lock, "");
+});
+
 test("reference mode and refinement instructions flow into both model prompts", () => {
   const prompt = generatePrompt({
     ...MOODS["Office Desk Workspace"],
