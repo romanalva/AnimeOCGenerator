@@ -15,6 +15,7 @@ import {
 } from "../src/portraitData.js";
 
 const NEW_PRESETS = [
+  "Cozy Gamer",
   "Volleyball Gym Sideline",
   "Volleyball Bleachers",
   "Volleyball Outdoor Sunset",
@@ -34,6 +35,12 @@ const BEACH_OUTFITS = [
   "bright tropical sports bra, relaxed drawstring athletic shorts, open lightweight shirt, ankle wrap",
   "sleek designer-inspired volleyball set with elegant wrap skirt cover-up and subtle jewelry accents",
   "dark high-performance longline top, fitted athletic bottoms, windbreaker tied at the waist, supportive knee brace",
+];
+
+const COZY_GAMER_OUTFITS = [
+  "oversized pastel gamer hoodie over fitted lounge shorts and thigh-high socks",
+  "soft cropped gaming hoodie, ribbed biker shorts, and plush leg warmers",
+  "oversized graphic gamer tee with relaxed shorts and cozy cardigan",
 ];
 
 test("portrait scene presets are registered without duplicate names", () => {
@@ -135,6 +142,19 @@ test("new beach volleyball preset outfits are selectable in the portrait data po
   BEACH_OUTFITS.forEach((outfit) => {
     assert.ok(DATA.outfit.includes(outfit), `${outfit} should be selectable`);
   });
+});
+
+test("cozy gamer preset uses gamer-specific rooms and styling", () => {
+  const prompt = generatePrompt(MOODS["Cozy Gamer"]);
+
+  assert.ok(prompt.setting.includes("gamer") || prompt.setting.includes("gaming") || prompt.setting.includes("streaming"));
+  assert.ok(prompt.lighting.includes("monitor") || prompt.lighting.includes("RGB") || prompt.lighting.includes("screen"));
+  assert.ok(prompt.mood.includes("gaming") || prompt.mood.includes("gamer") || prompt.mood.includes("streaming"));
+  assert.ok(
+    COZY_GAMER_OUTFITS.includes(prompt.outfit),
+    `Expected cozy gamer outfit, received ${prompt.outfit}`,
+  );
+  assert.ok(prompt.chatgptPrompt.includes("Scene: place the subject in"));
 });
 
 const BLOATED_OVERRIDE = {
